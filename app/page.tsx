@@ -1,103 +1,126 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import PostCard from './components/PostCard';
+
+const DEMO_URLS = [
+  'https://twitter.com/jack/status/20',
+  'https://twitter.com/elonmusk/status/1585841080431321088',
+  'https://twitter.com/joely7758521/status/1947472826489016745',
+  'https://x.com/niccruzpatane/status/1946967976005042231',
+  'https://x.com/SpaceX/status/1946437942265987384'
+];
+
+interface Tweet {
+  url: string;
+  id: string;
+  text: string;
+  author: {
+    name: string;
+    screen_name: string;
+    avatar_url: string;
+  };
+  created_at: string;
+  media?: {
+    photos?: Array<{
+      type: string;
+      url: string;
+      width: number;
+      height: number;
+    }>;
+    videos?: Array<{
+      url: string;
+      thumbnail_url: string;
+      duration: number;
+      width: number;
+      height: number;
+      variants: Array<{
+        content_type: string;
+        url: string;
+        bitrate?: number;
+      }>;
+    }>;
+  };
+  quote?: Tweet;
+}
+
+interface ApiResponse {
+  code: number;
+  message: string;
+  tweet: Tweet;
+}
+
+function normalizeUrl(url: string): string {
+  return url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://api.fxtwitter.com');
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const fetchTweets = async () => {
+      try {
+        const promises = DEMO_URLS.map(async (url) => {
+          const apiUrl = normalizeUrl(url);
+          const response = await fetch(apiUrl);
+          const data: ApiResponse = await response.json();
+          
+          if (data.code === 200) {
+            return data.tweet;
+          }
+          throw new Error(`Failed to fetch tweet: ${data.message}`);
+        });
+
+        const results = await Promise.allSettled(promises);
+        const successfulTweets = results
+          .filter((result): result is PromiseFulfilledResult<Tweet> => result.status === 'fulfilled')
+          .map(result => result.value);
+
+        setTweets(successfulTweets);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTweets();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading tweets...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-red-500">Error: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">X Kids Feed</h1>
+          <p className="text-gray-600 mt-2">Fun and engaging content for curious kids</p>
+        </div>
+      </header>
+      
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-6">
+          {tweets.map((tweet) => (
+            <PostCard key={tweet.id} tweet={tweet} />
+          ))}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
