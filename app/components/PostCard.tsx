@@ -72,7 +72,8 @@ export default function PostCard({ tweet }: PostCardProps) {
                 <video
                   controls
                   poster={video.thumbnail_url}
-                  className="w-full rounded-lg max-h-96 object-cover"
+                  className="w-full rounded-lg max-h-96"
+                  style={{ aspectRatio: `${video.width}/${video.height}` }}
                   preload="metadata"
                 >
                   <source src={getBestVideoUrl(video.variants)} type="video/mp4" />
@@ -163,14 +164,17 @@ export default function PostCard({ tweet }: PostCardProps) {
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => setEnlargedImage(null)}
         >
-          <div className="relative max-w-4xl max-h-full">
+          <div className="relative w-full h-full flex items-center justify-center">
             <img
               src={enlargedImage}
               alt="Enlarged tweet image"
               className="max-w-full max-h-full object-contain rounded-lg"
             />
             <button
-              onClick={() => setEnlargedImage(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEnlargedImage(null);
+              }}
               className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
