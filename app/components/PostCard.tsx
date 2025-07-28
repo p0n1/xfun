@@ -66,19 +66,23 @@ export default function PostCard({ tweet }: PostCardProps) {
     return (
       <div className="mt-3">
         {media.videos && media.videos.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             {media.videos.map((video, index) => (
-              <div key={index} className="relative">
+              <div key={index} className="relative overflow-hidden rounded-xl shadow-md">
                 <video
                   controls
                   poster={video.thumbnail_url}
-                  className="w-full rounded-xl shadow-sm max-h-64 sm:max-h-80 lg:max-h-96"
-                  style={{ aspectRatio: `${video.width}/${video.height}` }}
+                  className="w-full h-auto object-contain bg-black rounded-xl"
+                  style={{ 
+                    aspectRatio: `${video.width}/${video.height}`,
+                    maxHeight: 'min(70vh, 400px)'
+                  }}
                   preload="metadata"
                 >
                   <source src={getBestVideoUrl(video.variants)} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
+                <div className="absolute inset-0 pointer-events-none rounded-xl ring-1 ring-black/5"></div>
               </div>
             ))}
           </div>
