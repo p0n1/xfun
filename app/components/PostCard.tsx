@@ -107,17 +107,17 @@ export default function PostCard({ tweet }: PostCardProps) {
 
   const renderQuoteTweet = (quote: Tweet) => {
     return (
-      <div className="mt-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+      <div className="mt-3 border-l-4 border-l-blue-400 border border-gray-200 rounded-lg p-3 sm:p-4 bg-blue-50/30">
         <div className="flex items-center space-x-2 mb-2">
           <img
             src={quote.author.avatar_url}
             alt={quote.author.name}
-            className="w-6 h-6 rounded-full"
+            className="w-7 h-7 rounded-full"
           />
-          <span className="font-semibold text-sm">{quote.author.name}</span>
+          <span className="font-semibold text-sm text-gray-900">{quote.author.name}</span>
           <span className="text-gray-500 text-sm">@{quote.author.screen_name}</span>
         </div>
-        <p className="text-sm text-gray-800 mb-2">{quote.text}</p>
+        <p className="text-sm text-gray-800 mb-2 leading-relaxed">{quote.text}</p>
         {renderMedia(quote.media)}
       </div>
     );
@@ -125,12 +125,12 @@ export default function PostCard({ tweet }: PostCardProps) {
 
   return (
     <>
-      <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-start space-x-3 mb-3">
+      <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-start space-x-2 sm:space-x-3 mb-3">
           <img
             src={tweet.author.avatar_url}
             alt={tweet.author.name}
-            className="w-12 h-12 rounded-full flex-shrink-0"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
           />
           
           <div className="flex-1 min-w-0">
@@ -151,7 +151,7 @@ export default function PostCard({ tweet }: PostCardProps) {
             href={tweet.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
+            className="text-gray-400 hover:text-gray-600 text-xs transition-colors"
           >
             <time>{formatDate(tweet.created_at)}</time>
           </a>
