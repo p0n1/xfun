@@ -113,13 +113,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-white drop-shadow-sm">🌟 X Kids Feed</h1>
-          <p className="text-blue-100 mt-2">Fun and engaging content for curious kids</p>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Kids Feed</h1>
+          <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious kids</p>
         </div>
       </header>
       
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="space-y-6">
           {tweets.map((tweet) => (
             <PostCard key={tweet.id} tweet={tweet} />

@@ -72,7 +72,7 @@ export default function PostCard({ tweet }: PostCardProps) {
                 <video
                   controls
                   poster={video.thumbnail_url}
-                  className="w-full rounded-lg max-h-96"
+                  className="w-full rounded-xl shadow-sm max-h-64 sm:max-h-80 lg:max-h-96"
                   style={{ aspectRatio: `${video.width}/${video.height}` }}
                   preload="metadata"
                 >
@@ -85,17 +85,23 @@ export default function PostCard({ tweet }: PostCardProps) {
         )}
 
         {media.photos && media.photos.length > 0 && (
-          <div className={`grid gap-2 ${media.videos && media.videos.length > 0 ? 'mt-4' : ''} ${media.photos.length === 1 ? 'grid-cols-1' : media.photos.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
+          <div className={`grid gap-2 sm:gap-3 ${media.videos && media.videos.length > 0 ? 'mt-4' : ''} ${
+            media.photos.length === 1 
+              ? 'grid-cols-1' 
+              : media.photos.length === 2 
+              ? 'grid-cols-1 sm:grid-cols-2' 
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+          }`}>
             {media.photos.map((photo, index) => (
               <div
                 key={index}
-                className="relative cursor-pointer hover:opacity-90 transition-opacity"
+                className="relative cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all duration-200"
                 onClick={() => setEnlargedImage(photo.url)}
               >
                 <img
                   src={photo.url}
                   alt="Tweet image"
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-40 sm:h-48 lg:h-52 object-cover rounded-xl shadow-sm"
                 />
               </div>
             ))}
@@ -134,24 +140,24 @@ export default function PostCard({ tweet }: PostCardProps) {
           />
           
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-purple-700 text-base leading-tight">{tweet.author.name}</h3>
-            <div className="text-blue-600 text-sm">@{tweet.author.screen_name}</div>
+            <h3 className="font-bold text-purple-700 text-sm sm:text-base leading-tight truncate">{tweet.author.name}</h3>
+            <div className="text-blue-600 text-xs sm:text-sm truncate">@{tweet.author.screen_name}</div>
           </div>
         </div>
         
-        <p className="text-gray-800 text-base leading-relaxed mb-3 whitespace-pre-wrap">
+        <p className="text-gray-800 text-sm sm:text-base leading-relaxed mb-3 whitespace-pre-wrap">
           {tweet.text}
         </p>
 
         {renderMedia(tweet.media)}
         {tweet.quote && renderQuoteTweet(tweet.quote)}
 
-        <div className="mt-4 pt-3 border-t border-gray-100">
+        <div className="mt-3 sm:mt-4">
           <a
             href={tweet.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-400 hover:text-gray-600 text-xs transition-colors"
+            className="text-gray-400 hover:text-gray-600 text-xs sm:text-sm transition-colors"
           >
             <time>{formatDate(tweet.created_at)}</time>
           </a>
