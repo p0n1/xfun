@@ -105,7 +105,7 @@ export default function PostCard({ tweet }: PostCardProps) {
                 <img
                   src={photo.url}
                   alt="Tweet image"
-                  className="w-full h-40 sm:h-48 lg:h-52 object-cover rounded-xl shadow-sm"
+                  className="w-full h-40 sm:h-48 lg:h-96 object-cover rounded-xl shadow-sm"
                 />
               </div>
             ))}
