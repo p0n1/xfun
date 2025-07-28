@@ -85,7 +85,7 @@ export default function PostCard({ tweet }: PostCardProps) {
         )}
 
         {media.photos && media.photos.length > 0 && (
-          <div className={`grid gap-2 ${media.photos.length === 1 ? 'grid-cols-1' : media.photos.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
+          <div className={`grid gap-2 ${media.videos && media.videos.length > 0 ? 'mt-4' : ''} ${media.photos.length === 1 ? 'grid-cols-1' : media.photos.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
             {media.photos.map((photo, index) => (
               <div
                 key={index}
