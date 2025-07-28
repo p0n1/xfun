@@ -137,7 +137,14 @@ export default function PostCard({ tweet }: PostCardProps) {
               <h3 className="font-bold text-gray-900 truncate">{tweet.author.name}</h3>
               <span className="text-gray-500">@{tweet.author.screen_name}</span>
               <span className="text-gray-400 text-sm">·</span>
-              <time className="text-gray-400 text-sm">{formatDate(tweet.created_at)}</time>
+              <a
+                href={tweet.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
+              >
+                <time>{formatDate(tweet.created_at)}</time>
+              </a>
             </div>
             
             <p className="text-gray-800 text-base leading-relaxed mb-3 whitespace-pre-wrap">
@@ -147,19 +154,6 @@ export default function PostCard({ tweet }: PostCardProps) {
             {renderMedia(tweet.media)}
             {tweet.quote && renderQuoteTweet(tweet.quote)}
 
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <a
-                href={tweet.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors text-sm font-medium"
-              >
-                View on X
-                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            </div>
           </div>
         </div>
       </article>
