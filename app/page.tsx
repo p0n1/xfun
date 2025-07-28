@@ -8,7 +8,12 @@ const DEMO_URLS = [
   'https://twitter.com/elonmusk/status/1585841080431321088',
   'https://twitter.com/joely7758521/status/1947472826489016745',
   'https://x.com/niccruzpatane/status/1946967976005042231',
-  'https://x.com/SpaceX/status/1946437942265987384'
+  'https://x.com/SpaceX/status/1946437942265987384',
+  'https://x.com/SpaceX/status/1949680387330027593',
+  'https://x.com/johnkrausphotos/status/1947054042787762669',
+  'https://x.com/SpaceBasedFox/status/1946403321646116865',
+  'https://x.com/Rainmaker1973/status/1945522890889212414',
+  'https://x.com/yourcloudnin3/status/1944214180472733905'
 ];
 
 interface Tweet {
