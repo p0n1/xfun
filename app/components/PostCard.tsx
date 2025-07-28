@@ -126,7 +126,7 @@ export default function PostCard({ tweet }: PostCardProps) {
   return (
     <>
       <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start space-x-3 mb-3">
           <img
             src={tweet.author.avatar_url}
             alt={tweet.author.name}
@@ -134,28 +134,27 @@ export default function PostCard({ tweet }: PostCardProps) {
           />
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-2">
-              <h3 className="font-bold text-gray-900 truncate">{tweet.author.name}</h3>
-              <span className="text-gray-500">@{tweet.author.screen_name}</span>
-              <span className="text-gray-400 text-sm">·</span>
-              <a
-                href={tweet.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
-              >
-                <time>{formatDate(tweet.created_at)}</time>
-              </a>
-            </div>
-            
-            <p className="text-gray-800 text-base leading-relaxed mb-3 whitespace-pre-wrap">
-              {tweet.text}
-            </p>
-
-            {renderMedia(tweet.media)}
-            {tweet.quote && renderQuoteTweet(tweet.quote)}
-
+            <h3 className="font-bold text-gray-900 text-base leading-tight">{tweet.author.name}</h3>
+            <div className="text-gray-500 text-sm">@{tweet.author.screen_name}</div>
           </div>
+        </div>
+        
+        <p className="text-gray-800 text-base leading-relaxed mb-3 whitespace-pre-wrap">
+          {tweet.text}
+        </p>
+
+        {renderMedia(tweet.media)}
+        {tweet.quote && renderQuoteTweet(tweet.quote)}
+
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <a
+            href={tweet.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
+          >
+            <time>{formatDate(tweet.created_at)}</time>
+          </a>
         </div>
       </article>
 
