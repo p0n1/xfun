@@ -1,0 +1,153 @@
+{
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/SpaceX/status/1946437942265987384",
+      "id": "1946437942265987384",
+      "text": "Falcon 9 launches 24 @Starlink satellites from California",
+      "raw_text": {
+        "text": "Falcon 9 launches 24 @Starlink satellites from California https://t.co/57IRErhmHN",
+        "facets": [
+          {
+            "type": "mention",
+            "indices": [21, 30],
+            "original": "Starlink",
+            "id": "1330170106501079041"
+          },
+          {
+            "type": "media",
+            "indices": [58, 81],
+            "id": "1946437480997335041",
+            "display": "pic.x.com/57IRErhmHN",
+            "original": "https://t.co/57IRErhmHN",
+            "replacement": "https://x.com/SpaceX/status/1946437942265987384/video/1"
+          },
+          {
+            "type": "media",
+            "indices": [58, 81],
+            "id": "1946437537192378370",
+            "display": "pic.x.com/57IRErhmHN",
+            "original": "https://t.co/57IRErhmHN",
+            "replacement": "https://x.com/SpaceX/status/1946437942265987384/video/1"
+          }
+        ]
+      },
+      "author": {
+        "id": "34743251",
+        "name": "SpaceX",
+        "screen_name": "SpaceX",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1697749409851985920/HbrI04tM_200x200.jpg",
+        "banner_url": "https://pbs.twimg.com/profile_banners/34743251/1681251194",
+        "description": "SpaceX designs, manufactures and launches the world’s most advanced rockets and spacecraft",
+        "location": "Earth",
+        "url": "https://x.com/SpaceX",
+        "followers": 39503308,
+        "following": 120,
+        "joined": "Thu Apr 23 21:53:30 +0000 2009",
+        "likes": 502,
+        "website": {
+          "url": "http://spacex.com",
+          "display_url": "spacex.com"
+        },
+        "tweets": 10411,
+        "avatar_color": null
+      },
+      "replies": 1198,
+      "retweets": 2274,
+      "likes": 10708,
+      "bookmarks": 278,
+      "created_at": "Sat Jul 19 05:12:23 +0000 2025",
+      "created_timestamp": 1752901943,
+      "possibly_sensitive": false,
+      "views": 1954415,
+      "is_note_tweet": false,
+      "community_note": null,
+      "lang": "en",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/1280x720/iwa3M4O0xJ_2KbsR.mp4?tag=21",
+            "thumbnail_url": "https://pbs.twimg.com/amplify_video_thumb/1946437480997335041/img/_4_zdKZPB9fNxxNL.jpg",
+            "duration": 12.012,
+            "width": 1280,
+            "height": 720,
+            "format": "video/mp4",
+            "type": "video",
+            "variants": [
+              {
+                "content_type": "application/x-mpegURL",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/pl/eRanHzUYQoExu7fs.m3u8?tag=21&v=cfc"
+              },
+              {
+                "bitrate": 256000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/480x270/GkbPEYbRIsZGypM_.mp4?tag=21"
+              },
+              {
+                "bitrate": 832000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/640x360/bUJjjz9GRakPQY8f.mp4?tag=21"
+              },
+              {
+                "bitrate": 2176000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/1280x720/iwa3M4O0xJ_2KbsR.mp4?tag=21"
+              }
+            ]
+          },
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwMioJ3WgAIX6hR.jpg",
+            "width": 3405,
+            "height": 2270
+          }
+        ],
+        "videos": [
+          {
+            "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/1280x720/iwa3M4O0xJ_2KbsR.mp4?tag=21",
+            "thumbnail_url": "https://pbs.twimg.com/amplify_video_thumb/1946437480997335041/img/_4_zdKZPB9fNxxNL.jpg",
+            "duration": 12.012,
+            "width": 1280,
+            "height": 720,
+            "format": "video/mp4",
+            "type": "video",
+            "variants": [
+              {
+                "content_type": "application/x-mpegURL",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/pl/eRanHzUYQoExu7fs.m3u8?tag=21&v=cfc"
+              },
+              {
+                "bitrate": 256000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/480x270/GkbPEYbRIsZGypM_.mp4?tag=21"
+              },
+              {
+                "bitrate": 832000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/640x360/bUJjjz9GRakPQY8f.mp4?tag=21"
+              },
+              {
+                "bitrate": 2176000,
+                "content_type": "video/mp4",
+                "url": "https://video.twimg.com/amplify_video/1946437480997335041/vid/avc1/1280x720/iwa3M4O0xJ_2KbsR.mp4?tag=21"
+              }
+            ]
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwMioJ3WgAIX6hR.jpg",
+            "width": 3405,
+            "height": 2270
+          }
+        ]
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "player",
+      "color": null,
+      "provider": "twitter"
+    }
+  }

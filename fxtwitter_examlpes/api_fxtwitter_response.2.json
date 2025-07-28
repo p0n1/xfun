@@ -1,0 +1,235 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/niccruzpatane/status/1946967976005042231",
+    "id": "1946967976005042231",
+    "text": "Kids are going to love this.",
+    "raw_text": {
+      "text": "Kids are going to love this. https://t.co/nWjSLYhrO2",
+      "facets": [
+        {
+          "type": "media",
+          "indices": [29, 52],
+          "id": "1946967960771338240",
+          "display": "pic.x.com/nWjSLYhrO2",
+          "original": "https://t.co/nWjSLYhrO2",
+          "replacement": "https://x.com/niccruzpatane/status/1946967976005042231/photo/1"
+        },
+        {
+          "type": "media",
+          "indices": [29, 52],
+          "id": "1946967960809037824",
+          "display": "pic.x.com/nWjSLYhrO2",
+          "original": "https://t.co/nWjSLYhrO2",
+          "replacement": "https://x.com/niccruzpatane/status/1946967976005042231/photo/1"
+        }
+      ]
+    },
+    "author": {
+      "id": "1494873435863977985",
+      "name": "Nic Cruz Patane",
+      "screen_name": "niccruzpatane",
+      "avatar_url": "https://pbs.twimg.com/profile_images/1805666868071391232/1qAqAOng_200x200.jpg",
+      "banner_url": "https://pbs.twimg.com/profile_banners/1494873435863977985/1748749360",
+      "description": "Deep dive into everything Tesla",
+      "location": "",
+      "url": "https://x.com/niccruzpatane",
+      "followers": 64202,
+      "following": 179,
+      "joined": "Sat Feb 19 03:16:24 +0000 2022",
+      "likes": 21870,
+      "website": null,
+      "tweets": 30925,
+      "avatar_color": null
+    },
+    "replies": 57,
+    "retweets": 104,
+    "likes": 1434,
+    "bookmarks": 89,
+    "created_at": "Sun Jul 20 16:18:33 +0000 2025",
+    "created_timestamp": 1753028313,
+    "possibly_sensitive": false,
+    "views": 131229,
+    "is_note_tweet": false,
+    "community_note": null,
+    "lang": "en",
+    "replying_to": null,
+    "replying_to_status": null,
+    "media": {
+      "all": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GwUFC3rXoAA_Og2.jpg",
+          "width": 1536,
+          "height": 2048
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GwUFC30W4AAJByk.jpg",
+          "width": 1536,
+          "height": 2048
+        }
+      ],
+      "photos": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GwUFC3rXoAA_Og2.jpg",
+          "width": 1536,
+          "height": 2048
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GwUFC30W4AAJByk.jpg",
+          "width": 1536,
+          "height": 2048
+        }
+      ],
+      "mosaic": {
+        "type": "mosaic_photo",
+        "formats": {
+          "jpeg": "https://mosaic.fxtwitter.com/jpeg/1946967976005042231/GwUFC3rXoAA_Og2/GwUFC30W4AAJByk",
+          "webp": "https://mosaic.fxtwitter.com/webp/1946967976005042231/GwUFC3rXoAA_Og2/GwUFC30W4AAJByk"
+        }
+      }
+    },
+    "quote": {
+      "url": "https://x.com/whistingbhole/status/1946729843485508000",
+      "id": "1946729843485508000",
+      "text": "The presentation of the food was totally unexpected. The @cybertruck food box was sweet. The kids loved that they made a great kids hat. @Tesla #tesladiner",
+      "raw_text": {
+        "text": "The presentation of the food was totally unexpected. The @cybertruck food box was sweet. The kids loved that they made a great kids hat. @Tesla #tesladiner https://t.co/vOGE9aZYkK",
+        "facets": [
+          {
+            "type": "mention",
+            "indices": [57, 68],
+            "original": "cybertruck",
+            "id": "1686044379910131718"
+          },
+          {
+            "type": "mention",
+            "indices": [137, 143],
+            "original": "Tesla",
+            "id": "13298072"
+          },
+          {
+            "type": "hashtag",
+            "indices": [144, 155],
+            "original": "tesladiner"
+          },
+          {
+            "type": "media",
+            "indices": [156, 179],
+            "id": "1946729826708242432",
+            "display": "pic.x.com/vOGE9aZYkK",
+            "original": "https://t.co/vOGE9aZYkK",
+            "replacement": "https://x.com/whistingbhole/status/1946729843485508000/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [156, 179],
+            "id": "1946729826875854848",
+            "display": "pic.x.com/vOGE9aZYkK",
+            "original": "https://t.co/vOGE9aZYkK",
+            "replacement": "https://x.com/whistingbhole/status/1946729843485508000/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [156, 179],
+            "id": "1946729826930348032",
+            "display": "pic.x.com/vOGE9aZYkK",
+            "original": "https://t.co/vOGE9aZYkK",
+            "replacement": "https://x.com/whistingbhole/status/1946729843485508000/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "id": "549971760",
+        "name": "Prime the pump",
+        "screen_name": "whistingbhole",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1946724143031836673/l2d65OTC_200x200.jpg",
+        "banner_url": "",
+        "description": "",
+        "location": "",
+        "url": "https://x.com/whistingbhole",
+        "followers": 290,
+        "following": 30,
+        "joined": "Tue Apr 10 07:13:05 +0000 2012",
+        "likes": 388,
+        "website": null,
+        "tweets": 902,
+        "avatar_color": null
+      },
+      "replies": 28,
+      "retweets": 74,
+      "likes": 682,
+      "bookmarks": 42,
+      "created_at": "Sun Jul 20 00:32:17 +0000 2025",
+      "created_timestamp": 1752971537,
+      "possibly_sensitive": false,
+      "views": 261946,
+      "is_note_tweet": false,
+      "community_note": null,
+      "lang": "en",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdpKaQAA5CBK.jpg",
+            "width": 1536,
+            "height": 2048
+          },
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdpyX0AAgH8y.jpg",
+            "width": 1536,
+            "height": 2048
+          },
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdp_XUAAK3_W.jpg",
+            "width": 1536,
+            "height": 2048
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdpKaQAA5CBK.jpg",
+            "width": 1536,
+            "height": 2048
+          },
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdpyX0AAgH8y.jpg",
+            "width": 1536,
+            "height": 2048
+          },
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GwQsdp_XUAAK3_W.jpg",
+            "width": 1536,
+            "height": 2048
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/1946729843485508000/GwQsdpKaQAA5CBK/GwQsdpyX0AAgH8y/GwQsdp_XUAAK3_W",
+            "webp": "https://mosaic.fxtwitter.com/webp/1946729843485508000/GwQsdpKaQAA5CBK/GwQsdpyX0AAgH8y/GwQsdp_XUAAK3_W"
+          }
+        }
+      },
+      "source": "Twitter for iPhone",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter"
+    },
+    "source": "Twitter for iPhone",
+    "twitter_card": "summary_large_image",
+    "color": null,
+    "provider": "twitter"
+  }
+}
