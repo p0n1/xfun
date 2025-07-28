@@ -111,11 +111,11 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">X Kids Feed</h1>
-          <p className="text-gray-600 mt-2">Fun and engaging content for curious kids</p>
+          <h1 className="text-3xl font-bold text-white drop-shadow-sm">🌟 X Kids Feed</h1>
+          <p className="text-blue-100 mt-2">Fun and engaging content for curious kids</p>
         </div>
       </header>
       

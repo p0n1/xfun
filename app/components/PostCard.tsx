@@ -107,15 +107,15 @@ export default function PostCard({ tweet }: PostCardProps) {
 
   const renderQuoteTweet = (quote: Tweet) => {
     return (
-      <div className="mt-3 border-l-4 border-l-blue-400 border border-gray-200 rounded-lg p-3 sm:p-4 bg-blue-50/30">
+      <div className="mt-3 border-l-4 border-l-pink-400 border-2 border-pink-200 rounded-xl p-3 sm:p-4 bg-gradient-to-r from-pink-50 to-purple-50">
         <div className="flex items-center space-x-2 mb-2">
           <img
             src={quote.author.avatar_url}
             alt={quote.author.name}
             className="w-7 h-7 rounded-full"
           />
-          <span className="font-semibold text-sm text-gray-900">{quote.author.name}</span>
-          <span className="text-gray-500 text-sm">@{quote.author.screen_name}</span>
+          <span className="font-semibold text-sm text-purple-700">{quote.author.name}</span>
+          <span className="text-pink-600 text-sm">@{quote.author.screen_name}</span>
         </div>
         <p className="text-sm text-gray-800 mb-2 leading-relaxed">{quote.text}</p>
         {renderMedia(quote.media)}
@@ -125,7 +125,7 @@ export default function PostCard({ tweet }: PostCardProps) {
 
   return (
     <>
-      <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+      <article className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-4 sm:p-6 hover:shadow-xl hover:border-purple-300 transition-all duration-300">
         <div className="flex items-start space-x-2 sm:space-x-3 mb-3">
           <img
             src={tweet.author.avatar_url}
@@ -134,8 +134,8 @@ export default function PostCard({ tweet }: PostCardProps) {
           />
           
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-900 text-base leading-tight">{tweet.author.name}</h3>
-            <div className="text-gray-500 text-sm">@{tweet.author.screen_name}</div>
+            <h3 className="font-bold text-purple-700 text-base leading-tight">{tweet.author.name}</h3>
+            <div className="text-blue-600 text-sm">@{tweet.author.screen_name}</div>
           </div>
         </div>
         
