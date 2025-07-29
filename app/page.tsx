@@ -16,6 +16,8 @@ const DEMO_URLS = [
   'https://x.com/yourcloudnin3/status/1944214180472733905'
 ];
 
+const BATCH_SIZE = 10;
+
 interface Tweet {
   url: string;
   id: string;
@@ -59,6 +61,24 @@ function normalizeUrl(url: string): string {
   return url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://api.fxtwitter.com');
 }
 
+function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRemoved: number } {
+  const seen = new Set<string>();
+  const deduplicated: string[] = [];
+  let duplicatesRemoved = 0;
+  
+  for (const url of urls) {
+    const normalizedForComparison = url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://x.com');
+    if (!seen.has(normalizedForComparison)) {
+      seen.add(normalizedForComparison);
+      deduplicated.push(url);
+    } else {
+      duplicatesRemoved++;
+    }
+  }
+  
+  return { deduplicated, duplicatesRemoved };
+}
+
 export default function Home() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,14 +88,17 @@ export default function Home() {
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showDemoOptions, setShowDemoOptions] = useState(false);
-  const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0 });
+  const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0, duplicatesRemoved: 0 });
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreTweets, setHasMoreTweets] = useState(true);
 
   const fetchUrlList = async (listUrl: string) => {
     setIsLoadingList(true);
     try {
       const response = await fetch(listUrl);
       const text = await response.text();
-      const urls = text
+      const rawUrls = text
         .split('\n')
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
@@ -85,8 +108,10 @@ export default function Home() {
         })
         .filter((url): url is string => url !== null);
       
-      if (urls.length > 0) {
-        setUrlList(urls);
+      if (rawUrls.length > 0) {
+        const { deduplicated, duplicatesRemoved } = deduplicateUrls(rawUrls);
+        setUrlList(deduplicated);
+        setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
         setError(null);
       } else {
         setError('No valid Twitter/X URLs found in the list');
@@ -112,7 +137,9 @@ export default function Home() {
   };
 
   const handleLoadDemo = () => {
-    setUrlList(DEMO_URLS);
+    const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
+    setUrlList(deduplicated);
+    setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
     setExternalUrl('');
     setError(null);
     setShowDemoOptions(false);
@@ -151,49 +178,111 @@ export default function Home() {
       fetchUrlList(listUrl);
     } else {
       // Load default demo if no URL parameter
-      setUrlList(DEMO_URLS);
+      const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
+      setUrlList(deduplicated);
+      setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
     }
   }, []);
 
-  useEffect(() => {
-    const fetchTweets = async () => {
-      try {
-        const promises = urlList.map(async (url) => {
-          const apiUrl = normalizeUrl(url);
-          const response = await fetch(apiUrl);
-          const data: ApiResponse = await response.json();
-          
-          if (data.code === 200) {
-            return data.tweet;
-          }
-          throw new Error(`Failed to fetch tweet: ${data.message}`);
-        });
-
-        const results = await Promise.allSettled(promises);
-        const successfulTweets = results
-          .filter((result): result is PromiseFulfilledResult<Tweet> => result.status === 'fulfilled')
-          .map(result => result.value);
-
-        const failedCount = results.filter(result => result.status === 'rejected').length;
+  const fetchBatch = async (batchIndex: number, isInitial = false) => {
+    const startIndex = batchIndex * BATCH_SIZE;
+    const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
+    const batchUrls = urlList.slice(startIndex, endIndex);
+    
+    if (batchUrls.length === 0) {
+      setHasMoreTweets(false);
+      return;
+    }
+    
+    try {
+      const promises = batchUrls.map(async (url) => {
+        const apiUrl = normalizeUrl(url);
+        const response = await fetch(apiUrl);
+        const data: ApiResponse = await response.json();
         
+        if (data.code === 200) {
+          return data.tweet;
+        }
+        throw new Error(`Failed to fetch tweet: ${data.message}`);
+      });
+
+      const results = await Promise.allSettled(promises);
+      const successfulTweets = results
+        .filter((result): result is PromiseFulfilledResult<Tweet> => result.status === 'fulfilled')
+        .map(result => result.value);
+
+      const failedCount = results.filter(result => result.status === 'rejected').length;
+      
+      if (isInitial) {
         setTweets(successfulTweets);
-        setLoadStats({
+        setLoadStats(prev => ({
+          ...prev,
           successful: successfulTweets.length,
           failed: failedCount,
           total: urlList.length
+        }));
+      } else {
+        let newTweets: Tweet[] = [];
+        setTweets(prev => {
+          const existingIds = new Set(prev.map(tweet => tweet.id));
+          newTweets = successfulTweets.filter(tweet => !existingIds.has(tweet.id));
+          return [...prev, ...newTweets];
         });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
-      } finally {
-        setLoading(false);
+        setLoadStats(prev => ({
+          ...prev,
+          successful: prev.successful + newTweets.length,
+          failed: prev.failed + failedCount
+        }));
       }
+      
+      setHasMoreTweets(endIndex < urlList.length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
+    }
+  };
+  
+  const loadMoreTweets = async () => {
+    if (isLoadingMore || !hasMoreTweets) return;
+    
+    setIsLoadingMore(true);
+    const nextBatch = currentBatch + 1;
+    await fetchBatch(nextBatch);
+    setCurrentBatch(nextBatch);
+    setIsLoadingMore(false);
+  };
+
+  useEffect(() => {
+    const initializeTweets = async () => {
+      if (urlList.length === 0) return;
+      
+      setLoading(true);
+      setTweets([]);
+      setCurrentBatch(0);
+      setHasMoreTweets(true);
+      
+      await fetchBatch(0, true);
+      setLoading(false);
     };
 
-    if (urlList.length > 0) {
-      setLoading(true);
-      fetchTweets();
-    }
+    initializeTweets();
   }, [urlList]);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loading || isLoadingMore || !hasMoreTweets) return;
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      if (scrollTop + windowHeight >= documentHeight - 1000) {
+        loadMoreTweets();
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, isLoadingMore, hasMoreTweets, currentBatch]);
 
   if (loading) {
     return (
@@ -326,6 +415,11 @@ export default function Home() {
                 <span className="text-gray-600">
                   📊 <strong>{loadStats.total}</strong> URLs in list
                 </span>
+                {loadStats.duplicatesRemoved > 0 && (
+                  <span className="text-orange-600">
+                    🔄 <strong>{loadStats.duplicatesRemoved}</strong> duplicates removed
+                  </span>
+                )}
                 <span className="text-green-600">
                   ✅ <strong>{loadStats.successful}</strong> loaded
                 </span>
@@ -336,7 +430,7 @@ export default function Home() {
                 )}
               </div>
               <div className="text-gray-500">
-                {Math.round((loadStats.successful / loadStats.total) * 100)}% success rate
+                {Math.round((loadStats.successful / (loadStats.successful + loadStats.failed)) * 100) || 0}% success rate
               </div>
             </div>
           </div>
@@ -347,6 +441,29 @@ export default function Home() {
             <PostCard key={tweet.id} tweet={tweet} />
           ))}
         </div>
+        
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-lg text-gray-600">Loading more tweets...</div>
+          </div>
+        )}
+        
+        {!loading && !isLoadingMore && hasMoreTweets && tweets.length > 0 && (
+          <div className="flex items-center justify-center py-8">
+            <button
+              onClick={loadMoreTweets}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
+            >
+              Load More Tweets
+            </button>
+          </div>
+        )}
+        
+        {!loading && !hasMoreTweets && tweets.length > 0 && (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-gray-500">🎉 All tweets loaded!</div>
+          </div>
+        )}
       </main>
     </div>
   );
