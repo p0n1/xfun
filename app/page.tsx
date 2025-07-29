@@ -63,7 +63,7 @@ export default function Home() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [urlList, setUrlList] = useState<string[]>(DEMO_URLS);
+  const [urlList, setUrlList] = useState<string[]>([]);
   const [externalUrl, setExternalUrl] = useState<string>('');
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -150,6 +150,9 @@ export default function Home() {
       setExternalUrl(listUrl);
       setShowUrlInput(true);
       fetchUrlList(listUrl);
+    } else {
+      // Load default demo if no URL parameter
+      setUrlList(DEMO_URLS);
     }
   }, []);
 
