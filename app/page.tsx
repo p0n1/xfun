@@ -7,14 +7,36 @@ import ScrollToTop from './components/ScrollToTop';
 const DEMO_URLS = [
   'https://twitter.com/jack/status/20',
   'https://twitter.com/elonmusk/status/1585841080431321088',
-  'https://twitter.com/joely7758521/status/1947472826489016745',
+  'https://x.com/NoContextHumans/status/1949803858063970648',
   'https://x.com/niccruzpatane/status/1946967976005042231',
   'https://x.com/SpaceX/status/1946437942265987384',
   'https://x.com/SpaceX/status/1949680387330027593',
   'https://x.com/johnkrausphotos/status/1947054042787762669',
   'https://x.com/SpaceBasedFox/status/1946403321646116865',
+  'https://twitter.com/joely7758521/status/1947472826489016745',
   'https://x.com/Rainmaker1973/status/1945522890889212414',
-  'https://x.com/yourcloudnin3/status/1944214180472733905'
+  'https://x.com/yourcloudnin3/status/1944214180472733905',
+  'https://x.com/not_2b_or_2b/status/1949666334616232152',
+  'https://x.com/interesting_aIl/status/1945914505633902667',
+  'https://x.com/DashHuang/status/1945939956444410008',
+  'https://x.com/earth_tracker/status/1944988485485781326',
+  'https://x.com/Rainmaker1973/status/1943173340472185135',
+  'https://x.com/catsareblessing/status/1941930158392553923',
+  'https://x.com/AMAZlNGNATURE/status/1941281137915040187',
+  'https://x.com/iam_smx/status/1940714232821277108',
+  'https://x.com/Ivar_A2428/status/1939698895598276770',
+  'https://x.com/konstructivizm/status/1939430423190470904',
+  'https://x.com/HowThingsWork_/status/1938658586839990720',
+  'https://x.com/Rainmaker1973/status/1938845424628179186',
+  'https://x.com/historigins/status/1938630539696619880',
+  'https://x.com/Crazymoments01/status/1938506613117358262',
+  'https://x.com/gunsnrosesgirl3/status/1938283624794636738',
+  'https://x.com/TodayiLearrned/status/1937704284713365861',
+  'https://x.com/AMAZlNGNATURE/status/1937495493476487329',
+  'https://x.com/PicturesFoIder/status/1936868452242760065',
+  'https://x.com/UNIVERSE_FEEDS/status/1936873263038074891',
+  'https://x.com/Rainmaker1973/status/1936647837615296894',
+  'https://x.com/AMAZlNGNATURE/status/1932563688667373813'
 ];
 
 const BATCH_SIZE = 10;
