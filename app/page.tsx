@@ -430,9 +430,6 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              <div className="text-gray-500">
-                {Math.round((loadStats.successful / (loadStats.successful + loadStats.failed)) * 100) || 0}% success rate
-              </div>
             </div>
           </div>
         )}
