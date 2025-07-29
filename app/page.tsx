@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import PostCard from './components/PostCard';
+import ScrollToTop from './components/ScrollToTop';
 
 const DEMO_URLS = [
   'https://twitter.com/jack/status/20',
@@ -465,6 +466,7 @@ export default function Home() {
           </div>
         )}
       </main>
+      <ScrollToTop />
     </div>
   );
 }
