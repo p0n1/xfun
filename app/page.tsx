@@ -64,36 +64,61 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [urlList, setUrlList] = useState<string[]>(DEMO_URLS);
+  const [externalUrl, setExternalUrl] = useState<string>('');
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0 });
+
+  const fetchUrlList = async (listUrl: string) => {
+    setIsLoadingList(true);
+    try {
+      const response = await fetch(listUrl);
+      const text = await response.text();
+      const urls = text
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
+        .map(line => {
+          const urlMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
+          return urlMatch ? urlMatch[1] : null;
+        })
+        .filter((url): url is string => url !== null);
+      
+      if (urls.length > 0) {
+        setUrlList(urls);
+        setError(null);
+      } else {
+        setError('No valid Twitter/X URLs found in the list');
+      }
+    } catch (err) {
+      setError('Failed to fetch URL list. Make sure the URL is accessible and contains valid Twitter/X URLs.');
+      console.error('Failed to fetch URL list:', err);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
+
+  const handleLoadExternalList = () => {
+    if (externalUrl.trim()) {
+      fetchUrlList(externalUrl.trim());
+    }
+  };
+
+  const handleLoadDemo = () => {
+    setUrlList(DEMO_URLS);
+    setExternalUrl('');
+    setError(null);
+  };
 
   useEffect(() => {
-    const fetchUrlList = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const listUrl = params.get('list');
-      
-      if (listUrl) {
-        try {
-          const response = await fetch(listUrl);
-          const text = await response.text();
-          const urls = text
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
-            .map(line => {
-              const urlMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
-              return urlMatch ? urlMatch[1] : null;
-            })
-            .filter((url): url is string => url !== null);
-          
-          if (urls.length > 0) {
-            setUrlList(urls);
-          }
-        } catch (err) {
-          console.error('Failed to fetch URL list:', err);
-        }
-      }
-    };
-
-    fetchUrlList();
+    const params = new URLSearchParams(window.location.search);
+    const listUrl = params.get('list');
+    
+    if (listUrl) {
+      setExternalUrl(listUrl);
+      setShowUrlInput(true);
+      fetchUrlList(listUrl);
+    }
   }, []);
 
   useEffect(() => {
@@ -115,7 +140,14 @@ export default function Home() {
           .filter((result): result is PromiseFulfilledResult<Tweet> => result.status === 'fulfilled')
           .map(result => result.value);
 
+        const failedCount = results.filter(result => result.status === 'rejected').length;
+        
         setTweets(successfulTweets);
+        setLoadStats({
+          successful: successfulTweets.length,
+          failed: failedCount,
+          total: urlList.length
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
       } finally {
@@ -124,6 +156,7 @@ export default function Home() {
     };
 
     if (urlList.length > 0) {
+      setLoading(true);
       fetchTweets();
     }
   }, [urlList]);
@@ -148,12 +181,86 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Fun</h1>
-          <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Fun</h1>
+              <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleLoadDemo}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
+              >
+                Demo
+              </button>
+              <button
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
+              >
+                {showUrlInput ? 'Hide' : 'Custom List'}
+              </button>
+            </div>
+          </div>
+          
+          {showUrlInput && (
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  value={externalUrl}
+                  onChange={(e) => setExternalUrl(e.target.value)}
+                  placeholder="Enter URL to plain text list (e.g., GitHub raw URL)"
+                  className="flex-1 px-3 py-2 rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent text-gray-900 text-sm"
+                  disabled={isLoadingList}
+                />
+                <button
+                  onClick={handleLoadExternalList}
+                  disabled={!externalUrl.trim() || isLoadingList}
+                  className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm whitespace-nowrap"
+                >
+                  {isLoadingList ? 'Loading...' : 'Load List'}
+                </button>
+              </div>
+              <div className="bg-white/10 rounded-lg p-3 text-white text-sm">
+                <p className="font-medium mb-2">📝 Recommended Services (CORS-enabled):</p>
+                <ul className="space-y-1 text-white/90">
+                  <li>• <strong>GitHub:</strong> Create a public repo → Upload .txt file → Use raw URL</li>
+                  <li>• <strong>GitHub Gist:</strong> Create public gist → Use raw URL</li>
+                  <li>• <strong>Pastebin Pro:</strong> CORS-enabled for Pro accounts only</li>
+                </ul>
+                <p className="mt-2 text-white/80 text-xs">
+                  <strong>Format:</strong> One URL per line, comments allowed after URLs
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </header>
       
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {!loading && loadStats.total > 0 && (
+          <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-4">
+                <span className="text-gray-600">
+                  📊 <strong>{loadStats.total}</strong> URLs in list
+                </span>
+                <span className="text-green-600">
+                  ✅ <strong>{loadStats.successful}</strong> loaded
+                </span>
+                {loadStats.failed > 0 && (
+                  <span className="text-red-600">
+                    ❌ <strong>{loadStats.failed}</strong> failed
+                  </span>
+                )}
+              </div>
+              <div className="text-gray-500">
+                {Math.round((loadStats.successful / loadStats.total) * 100)}% success rate
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="space-y-6">
           {tweets.map((tweet) => (
             <PostCard key={tweet.id} tweet={tweet} />
