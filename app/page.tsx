@@ -122,8 +122,18 @@ export default function Home() {
   const fetchUrlList = async (listUrl: string) => {
     setIsLoadingList(true);
     try {
-      const response = await fetch(listUrl);
-      const text = await response.text();
+      // Use CORS proxy for URLs that don't support CORS
+      const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
+      const finalUrl = needsProxy ? `https://api.allorigins.win/get?url=${encodeURIComponent(listUrl)}` : listUrl;
+      
+      const response = await fetch(finalUrl);
+      let text = await response.text();
+      
+      // If using CORS proxy, extract the actual content
+      if (needsProxy) {
+        const data = JSON.parse(text);
+        text = data.contents;
+      }
       const rawUrls = text
         .split('\n')
         .map(line => line.trim())
@@ -418,14 +428,25 @@ export default function Home() {
                 </button>
               </div>
               <div className="bg-white/10 rounded-lg p-3 text-white text-sm">
-                <p className="font-medium mb-2">📝 Recommended Services (CORS-enabled):</p>
+                <p className="font-medium mb-2">📝 Supported Services:</p>
                 <ul className="space-y-1 text-white/90">
                   <li>• <strong>GitHub:</strong> Create a public repo → Upload .txt file → Use raw URL</li>
                   <li>• <strong>GitHub Gist:</strong> Create public gist → Use raw URL</li>
-                  <li>• <strong>Pastebin Pro:</strong> CORS-enabled for Pro accounts only</li>
+                  <li>• <strong>Pastebin:</strong> Any public paste URL (uses CORS proxy)</li>
                 </ul>
                 <p className="mt-2 text-white/80 text-xs">
-                  <strong>Format:</strong> One URL per line, comments allowed after URLs
+                  <strong>Format:</strong> One URL per line, comments allowed after URLs. Check examples above for working URLs.
+                </p>
+                <p className="mt-2 text-white/80 text-xs">
+                  <strong>💡 Troubleshooting:</strong> If your list fails to load, test CORS support at{' '}
+                  <a 
+                    href="https://cors-test.codehappy.dev/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-white underline hover:text-blue-200"
+                  >
+                    cors-test.codehappy.dev
+                  </a>
                 </p>
               </div>
             </div>
