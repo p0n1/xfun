@@ -100,7 +100,13 @@ export default function Home() {
 
   const handleLoadExternalList = () => {
     if (externalUrl.trim()) {
-      fetchUrlList(externalUrl.trim());
+      const url = externalUrl.trim();
+      fetchUrlList(url);
+      
+      // Update browser URL without encoding
+      const baseUrl = window.location.origin + window.location.pathname;
+      const newUrl = `${baseUrl}?list=${url}`;
+      window.history.pushState({}, '', newUrl);
     }
   };
 
@@ -108,6 +114,10 @@ export default function Home() {
     setUrlList(DEMO_URLS);
     setExternalUrl('');
     setError(null);
+    
+    // Clear URL parameter
+    const baseUrl = window.location.origin + window.location.pathname;
+    window.history.pushState({}, '', baseUrl);
   };
 
   useEffect(() => {
