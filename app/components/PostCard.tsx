@@ -41,6 +41,7 @@ interface PostCardProps {
 
 export default function PostCard({ tweet }: PostCardProps) {
   const [enlargedImageIndex, setEnlargedImageIndex] = useState<number | null>(null);
+  const [clickCount, setClickCount] = useState(0);
   
   const allPhotos = [
     ...(tweet.media?.photos || []),
@@ -81,6 +82,34 @@ export default function PostCard({ tweet }: PostCardProps) {
       setEnlargedImageIndex(enlargedImageIndex > 0 ? enlargedImageIndex - 1 : allPhotos.length - 1);
     } else {
       setEnlargedImageIndex(enlargedImageIndex < allPhotos.length - 1 ? enlargedImageIndex + 1 : 0);
+    }
+  };
+
+  const handleDateClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const newClickCount = clickCount + 1;
+    setClickCount(newClickCount);
+    
+    if (newClickCount === 3) {
+      window.open(tweet.url, '_blank', 'noopener,noreferrer');
+      setClickCount(0);
+    } else {
+      setTimeout(() => {
+        setClickCount(0);
+      }, 3000);
+    }
+  };
+
+  const getClickMessage = () => {
+    switch (clickCount) {
+      case 0:
+        return '';
+      case 1:
+        return 'Click 2 more times to open original post';
+      case 2:
+        return 'Click 1 more time to open original post';
+      default:
+        return '';
     }
   };
 
@@ -211,14 +240,19 @@ export default function PostCard({ tweet }: PostCardProps) {
         {tweet.quote && renderQuoteTweet(tweet.quote)}
 
         <div className="mt-3 sm:mt-4">
-          <a
-            href={tweet.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-400 hover:text-gray-600 text-xs sm:text-sm transition-colors"
-          >
-            <time>{formatDate(tweet.created_at)}</time>
-          </a>
+          <div className="flex flex-col space-y-1">
+            <button
+              onClick={handleDateClick}
+              className="text-gray-400 hover:text-gray-600 text-xs sm:text-sm transition-colors text-left cursor-pointer"
+            >
+              <time>{formatDate(tweet.created_at)}</time>
+            </button>
+            {clickCount > 0 && (
+              <div className="text-xs text-blue-600 font-medium animate-pulse">
+                {getClickMessage()} 💡
+              </div>
+            )}
+          </div>
         </div>
       </article>
 
