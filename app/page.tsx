@@ -148,7 +148,6 @@ export default function Home() {
     
     if (listUrl) {
       setExternalUrl(listUrl);
-      setShowUrlInput(true);
       fetchUrlList(listUrl);
     } else {
       // Load default demo if no URL parameter
