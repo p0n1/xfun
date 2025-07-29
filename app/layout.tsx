@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "X Kids Feed",
-  description: "Fun and engaging X/Twitter content for curious kids",
+  title: "X Fun",
+  description: "Fun and exciting X/Twitter content for curious minds",
 };
 
 export default function RootLayout({
