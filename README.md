@@ -1,8 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# X Fun - Clean X/Twitter List Viewer
 
-## Getting Started
+## The Story
 
-First, run the development server:
+As a parent, I often discover fascinating posts on X (formerly Twitter) that I bookmark to share with my child. However, sharing these posts through my phone presents a challenge: the X app is cluttered with distracting content and interface elements that detract from the core content I want to share.
+
+This led me to create a dedicated X/Twitter List Viewer. Instead of navigating the busy X interface, I can now curate interesting posts by collecting their URLs in a simple text file, then display them through this clean, focused website. The result is a distraction-free viewing experience that's actually better than browsing X.com directly — perfect for sharing educational, entertaining, or inspiring content with children without the noise of a full social media platform.
+
+## Features
+
+- **Clean Interface**: Displays X/Twitter posts without distracting elements
+- **Multi-format Support**: Handles text, images, videos, and mixed content
+- **Responsive Design**: Works seamlessly on mobile and desktop devices
+- **Direct Media Playback**: Videos and images play directly without redirects to X.com
+- **Expandable Images**: Click any photo to view it full-size
+- **URL Flexibility**: Supports both twitter.com and x.com URLs
+- **Kid-friendly**: Designed for young viewers, fostering curiosity without distractions
+- **Self-hosting Friendly**: Easy to deploy on your own server or hosting platform
+- **Privacy-focused**: All requests are sent from your browser — the hosting server never sees your lists
+
+## How to Use
+
+### Quick Start
+
+1. Visit [xfun.p0n1.xyz](https://xfun.p0n1.xyz) and try the default demo posts
+2. Click "Try Examples" to explore curated demo lists
+
+### Custom Lists
+
+1. Create a plain text file with X/Twitter URLs (one per line)
+2. Upload to a publicly accessible location:
+   - **GitHub**: Create public repo → Upload .txt file → Copy raw URL
+   - **GitHub Gist**: Create public gist → Copy raw URL
+   - **Pastebin**: Create public paste → Use paste URL
+3. Click the "Custom List" button on the website
+4. Paste your URL and click "Load List"
+
+### Troubleshooting CORS Issues
+
+Some hosting services may block cross-origin requests (CORS). If your list fails to load:
+
+1. **Test CORS support** at [cors-test.codehappy.dev](https://cors-test.codehappy.dev) with your URL
+2. **Use GitHub** (recommended) — always supports CORS for raw URLs
+3. **Pastebin URLs** are automatically handled with a CORS proxy
+
+### Supported URL Format
+
+```
+https://x.com/username/status/1234567890
+https://twitter.com/username/status/1234567890 # Comments are allowed after URLs
+https://x.com/SpaceX/status/1949680387330027593
+https://x.com/SpaceX/status/1949993416604951017 #starship
+https://x.com/SpaceX/status/1949605880863047750 #falcon9
+```
+
+The viewer automatically handles both `twitter.com` and `x.com` URLs and fetches content using the [FxEmbed API](https://api.fxtwitter.com).
+
+## Local Development
+
+To run the project locally:
 
 ```bash
 npm run dev
@@ -16,21 +71,10 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technical Details
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: Built with [Next.js](https://nextjs.org) for optimal performance
+- **API**: Uses [FxEmbed API](https://api.fxtwitter.com) — no API keys required
+- **Styling**: System font stack for consistent, fast-loading typography
+- **Architecture**: Client-side only (server serves static files for simplicity)
+- **Self-hosting**: Can be easily deployed to any static hosting service (Vercel, Netlify, GitHub Pages, etc.)
