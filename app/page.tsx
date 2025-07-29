@@ -42,7 +42,7 @@ const DEMO_URLS = [
   'https://x.com/AMAZlNGNATURE/status/1932563688667373813'
 ];
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 5;
 
 interface Tweet {
   url: string;
@@ -333,7 +333,12 @@ export default function Home() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
         <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Fun</h1>
+            <h1 
+              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors" 
+              onClick={() => window.location.reload()}
+            >
+              🌟 X Fun
+            </h1>
             <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
           </div>
         </header>
@@ -360,7 +365,12 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Fun</h1>
+              <h1 
+                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors" 
+                onClick={() => window.location.reload()}
+              >
+                🌟 X Fun
+              </h1>
               <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
             </div>
             <div className="flex gap-2">
