@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Tweet {
   url: string;
@@ -40,7 +40,12 @@ interface PostCardProps {
 }
 
 export default function PostCard({ tweet }: PostCardProps) {
-  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [enlargedImageIndex, setEnlargedImageIndex] = useState<number | null>(null);
+  
+  const allPhotos = [
+    ...(tweet.media?.photos || []),
+    ...(tweet.quote?.media?.photos || [])
+  ];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -59,6 +64,53 @@ export default function PostCard({ tweet }: PostCardProps) {
     mp4Variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
     return mp4Variants[0].url;
   };
+
+  const openGallery = (photoUrl: string) => {
+    const index = allPhotos.findIndex(photo => photo.url === photoUrl);
+    setEnlargedImageIndex(index !== -1 ? index : 0);
+  };
+
+  const closeGallery = () => {
+    setEnlargedImageIndex(null);
+  };
+
+  const navigateGallery = (direction: 'prev' | 'next') => {
+    if (enlargedImageIndex === null || allPhotos.length === 0) return;
+    
+    if (direction === 'prev') {
+      setEnlargedImageIndex(enlargedImageIndex > 0 ? enlargedImageIndex - 1 : allPhotos.length - 1);
+    } else {
+      setEnlargedImageIndex(enlargedImageIndex < allPhotos.length - 1 ? enlargedImageIndex + 1 : 0);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (enlargedImageIndex === null) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          closeGallery();
+          break;
+        case 'ArrowLeft':
+          navigateGallery('prev');
+          break;
+        case 'ArrowRight':
+          navigateGallery('next');
+          break;
+      }
+    };
+
+    if (enlargedImageIndex !== null) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [enlargedImageIndex]);
 
   const renderMedia = (media: Tweet['media']) => {
     if (!media) return null;
@@ -102,7 +154,7 @@ export default function PostCard({ tweet }: PostCardProps) {
               <div
                 key={index}
                 className="relative cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all duration-200"
-                onClick={() => setEnlargedImage(photo.url)}
+                onClick={() => openGallery(photo.url)}
               >
                 <img
                   src={photo.url}
@@ -170,28 +222,71 @@ export default function PostCard({ tweet }: PostCardProps) {
         </div>
       </article>
 
-      {enlargedImage && (
+      {enlargedImageIndex !== null && allPhotos.length > 0 && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setEnlargedImage(null)}
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          onClick={closeGallery}
         >
-          <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
-              src={enlargedImage}
+              src={allPhotos[enlargedImageIndex].url}
               alt="Enlarged tweet image"
               className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
             />
+            
+            {allPhotos.length > 1 && (
+              <div className="absolute inset-y-0 left-4 flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateGallery('prev');
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all transform hover:scale-110"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            {allPhotos.length > 1 && (
+              <div className="absolute inset-y-0 right-4 flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateGallery('next');
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all transform hover:scale-110"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setEnlargedImage(null);
+                closeGallery();
               }}
-              className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-colors"
+              onMouseDown={(e) => e.preventDefault()}
+              className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-all transform hover:scale-110"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            
+            {allPhotos.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                {enlargedImageIndex + 1} / {allPhotos.length}
+              </div>
+            )}
           </div>
         </div>
       )}
