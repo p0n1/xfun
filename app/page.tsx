@@ -410,25 +410,41 @@ export default function Home() {
       
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {!loading && loadStats.total > 0 && (
-          <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
-              <span className="text-gray-600">
-                📊 <strong>{loadStats.total}</strong> URLs in list
-              </span>
-              {loadStats.duplicatesRemoved > 0 && (
-                <span className="text-orange-600">
-                  🔄 <strong>{loadStats.duplicatesRemoved}</strong> duplicates removed
+          <div className="mb-6">
+            <details className="group">
+              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 transition-colors select-none">
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-[10px]">ℹ️</span>
+                  <span>Details</span>
+                  <span className="text-[10px] group-open:rotate-180 transition-transform">▼</span>
                 </span>
-              )}
-              <span className="text-green-600">
-                ✅ <strong>{loadStats.successful}</strong> loaded
-              </span>
-              {loadStats.failed > 0 && (
-                <span className="text-red-600">
-                  ❌ <strong>{loadStats.failed}</strong> failed
-                </span>
-              )}
-            </div>
+              </summary>
+              <div className="mt-2 text-xs text-gray-500 space-y-1 pl-3 border-l-2 border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                  <span>📋 {loadStats.total} URLs in current list</span>
+                  <span className="text-green-600">✓ {loadStats.successful} successfully loaded</span>
+                  {loadStats.failed > 0 && (
+                    <span className="text-red-500">✗ {loadStats.failed} failed to load</span>
+                  )}
+                  {loadStats.duplicatesRemoved > 0 && (
+                    <span className="text-orange-500">⚡ {loadStats.duplicatesRemoved} duplicates filtered</span>
+                  )}
+                </div>
+                {externalUrl && (
+                  <div className="text-blue-600 break-all">
+                    <span className="text-gray-500">🔗 Source:</span> {externalUrl}
+                  </div>
+                )}
+                {!externalUrl && (
+                  <div className="text-gray-400">
+                    <span className="text-gray-500">🔗 Source:</span> Built-in demo list
+                  </div>
+                )}
+                <div className="text-gray-400">
+                  <span className="text-gray-500">⏱️ Load progress:</span> {Math.round((loadStats.successful + loadStats.failed) / loadStats.total * 100)}% complete
+                </div>
+              </div>
+            </details>
           </div>
         )}
         
