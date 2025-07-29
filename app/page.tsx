@@ -458,6 +458,17 @@ export default function Home() {
                     cors-test.codehappy.dev
                   </a>
                 </p>
+                <p className="mt-2 text-white/80 text-xs">
+                  <strong>🔗 Source Code:</strong>{' '}
+                  <a 
+                    href="https://github.com/p0n1/xfun" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-white underline hover:text-blue-200"
+                  >
+                    github.com/p0n1/xfun
+                  </a>
+                </p>
               </div>
             </div>
           )}
@@ -498,6 +509,17 @@ export default function Home() {
                 )}
                 <div className="text-gray-400">
                   <span className="text-gray-500">⏱️ Load progress:</span> {Math.round((loadStats.successful + loadStats.failed) / loadStats.total * 100)}% complete
+                </div>
+                <div className="text-gray-400">
+                  <span className="text-gray-500">🔗 Source code:</span>{' '}
+                  <a 
+                    href="https://github.com/p0n1/xfun" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-700 underline"
+                  >
+                    github.com/p0n1/xfun
+                  </a>
                 </div>
               </div>
             </details>
