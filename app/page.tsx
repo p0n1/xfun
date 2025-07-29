@@ -248,7 +248,7 @@ export default function Home() {
                   {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
                 </button>
                 {showDemoOptions && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border z-10 min-w-64">
+                  <div className="absolute top-full mt-1 left-1/2 -translate-x-4/5 sm:left-auto sm:right-0 sm:translate-x-0 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
                     <div className="p-3 border-b">
                       <button
                         onClick={handleLoadDemo}
@@ -268,7 +268,7 @@ export default function Home() {
                         >
                           <div className="font-medium text-sm">{demo.name}</div>
                           <div className="text-xs text-gray-500">{demo.description}</div>
-                          <div className="text-xs text-blue-600 truncate mt-1">{demo.url}</div>
+                          <div className="text-xs text-blue-600 break-all mt-1">{demo.url}</div>
                         </button>
                       ))}
                     </div>
