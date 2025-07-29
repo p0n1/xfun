@@ -411,25 +411,23 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {!loading && loadStats.total > 0 && (
           <div className="mb-6 bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-4">
-                <span className="text-gray-600">
-                  📊 <strong>{loadStats.total}</strong> URLs in list
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
+              <span className="text-gray-600">
+                📊 <strong>{loadStats.total}</strong> URLs in list
+              </span>
+              {loadStats.duplicatesRemoved > 0 && (
+                <span className="text-orange-600">
+                  🔄 <strong>{loadStats.duplicatesRemoved}</strong> duplicates removed
                 </span>
-                {loadStats.duplicatesRemoved > 0 && (
-                  <span className="text-orange-600">
-                    🔄 <strong>{loadStats.duplicatesRemoved}</strong> duplicates removed
-                  </span>
-                )}
-                <span className="text-green-600">
-                  ✅ <strong>{loadStats.successful}</strong> loaded
+              )}
+              <span className="text-green-600">
+                ✅ <strong>{loadStats.successful}</strong> loaded
+              </span>
+              {loadStats.failed > 0 && (
+                <span className="text-red-600">
+                  ❌ <strong>{loadStats.failed}</strong> failed
                 </span>
-                {loadStats.failed > 0 && (
-                  <span className="text-red-600">
-                    ❌ <strong>{loadStats.failed}</strong> failed
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         )}
