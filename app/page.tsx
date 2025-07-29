@@ -63,11 +63,43 @@ export default function Home() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [urlList, setUrlList] = useState<string[]>(DEMO_URLS);
+
+  useEffect(() => {
+    const fetchUrlList = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const listUrl = params.get('list');
+      
+      if (listUrl) {
+        try {
+          const response = await fetch(listUrl);
+          const text = await response.text();
+          const urls = text
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
+            .map(line => {
+              const urlMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
+              return urlMatch ? urlMatch[1] : null;
+            })
+            .filter((url): url is string => url !== null);
+          
+          if (urls.length > 0) {
+            setUrlList(urls);
+          }
+        } catch (err) {
+          console.error('Failed to fetch URL list:', err);
+        }
+      }
+    };
+
+    fetchUrlList();
+  }, []);
 
   useEffect(() => {
     const fetchTweets = async () => {
       try {
-        const promises = DEMO_URLS.map(async (url) => {
+        const promises = urlList.map(async (url) => {
           const apiUrl = normalizeUrl(url);
           const response = await fetch(apiUrl);
           const data: ApiResponse = await response.json();
@@ -91,8 +123,10 @@ export default function Home() {
       }
     };
 
-    fetchTweets();
-  }, []);
+    if (urlList.length > 0) {
+      fetchTweets();
+    }
+  }, [urlList]);
 
   if (loading) {
     return (
