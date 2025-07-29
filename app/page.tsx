@@ -67,6 +67,7 @@ export default function Home() {
   const [externalUrl, setExternalUrl] = useState<string>('');
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showDemoOptions, setShowDemoOptions] = useState(false);
   const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0 });
 
   const fetchUrlList = async (listUrl: string) => {
@@ -114,11 +115,32 @@ export default function Home() {
     setUrlList(DEMO_URLS);
     setExternalUrl('');
     setError(null);
+    setShowDemoOptions(false);
     
     // Clear URL parameter
     const baseUrl = window.location.origin + window.location.pathname;
     window.history.pushState({}, '', baseUrl);
   };
+
+  const handleLoadDemoUrl = (demoUrl: string) => {
+    setExternalUrl(demoUrl);
+    fetchUrlList(demoUrl);
+    setShowDemoOptions(false);
+    
+    // Update browser URL
+    const baseUrl = window.location.origin + window.location.pathname;
+    const newUrl = `${baseUrl}?list=${demoUrl}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  // Demo URLs for testing
+  const demoUrls = [
+    {
+      name: "SpaceX Posts",
+      url: "https://raw.githubusercontent.com/p0n1/xfun/refs/heads/main/demo-lists/spacex.txt",
+      description: "Demo list with SpaceX tweets"
+    }
+  ];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -215,12 +237,41 @@ export default function Home() {
               <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleLoadDemo}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
-              >
-                Demo
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowDemoOptions(!showDemoOptions)}
+                  className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
+                >
+                  {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
+                </button>
+                {showDemoOptions && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border z-10 min-w-64">
+                    <div className="p-3 border-b">
+                      <button
+                        onClick={handleLoadDemo}
+                        className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
+                      >
+                        <div className="font-medium">Default Demo</div>
+                        <div className="text-xs text-gray-500">Built-in example posts</div>
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      <div className="text-xs text-gray-500 px-3 py-1 font-medium">Test External URLs:</div>
+                      {demoUrls.map((demo, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleLoadDemoUrl(demo.url)}
+                          className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
+                        >
+                          <div className="font-medium text-sm">{demo.name}</div>
+                          <div className="text-xs text-gray-500">{demo.description}</div>
+                          <div className="text-xs text-blue-600 truncate mt-1">{demo.url}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowUrlInput(!showUrlInput)}
                 className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
