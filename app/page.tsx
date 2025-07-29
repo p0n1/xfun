@@ -181,8 +181,26 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-red-500">Error: {error}</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+        <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm">🌟 X Fun</h1>
+            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
+          </div>
+        </header>
+        
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="text-6xl mb-4">😅</div>
+            <div className="text-xl text-red-500 mb-6">Error: {error}</div>
+            <button
+              onClick={handleLoadDemo}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium"
+            >
+              Return to Demo
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
