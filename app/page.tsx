@@ -43,7 +43,7 @@ const DEMO_URLS = [
   'https://x.com/AMAZlNGNATURE/status/1932563688667373813'
 ];
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 3;
 
 interface Tweet {
   url: string;
