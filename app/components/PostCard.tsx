@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 interface Tweet {
   url: string;
@@ -185,9 +186,11 @@ export default function PostCard({ tweet }: PostCardProps) {
                 className="relative cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all duration-200"
                 onClick={() => openGallery(photo.url)}
               >
-                <img
+                <Image
                   src={photo.url}
                   alt="Tweet image"
+                  width={photo.width}
+                  height={photo.height}
                   className="w-full h-40 sm:h-48 lg:h-96 object-cover rounded-xl shadow-sm"
                 />
               </div>
@@ -202,9 +205,11 @@ export default function PostCard({ tweet }: PostCardProps) {
     return (
       <div className="mt-3 border-l-4 border-l-pink-400 border-2 border-pink-200 rounded-xl p-3 sm:p-4 bg-gradient-to-r from-pink-50 to-purple-50">
         <div className="flex items-center space-x-2 mb-2">
-          <img
+          <Image
             src={quote.author.avatar_url}
             alt={quote.author.name}
+            width={28}
+            height={28}
             className="w-7 h-7 rounded-full"
           />
           <span className="font-semibold text-sm text-purple-700">{quote.author.name}</span>
@@ -220,9 +225,11 @@ export default function PostCard({ tweet }: PostCardProps) {
     <>
       <article className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-4 sm:p-6 hover:shadow-xl hover:border-purple-300 transition-all duration-300">
         <div className="flex items-start space-x-2 sm:space-x-3 mb-3">
-          <img
+          <Image
             src={tweet.author.avatar_url}
             alt={tweet.author.name}
+            width={48}
+            height={48}
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
           />
           
@@ -262,9 +269,11 @@ export default function PostCard({ tweet }: PostCardProps) {
           onClick={closeGallery}
         >
           <div className="relative w-full h-full flex items-center justify-center p-4">
-            <img
+            <Image
               src={allPhotos[enlargedImageIndex].url}
               alt="Enlarged tweet image"
+              width={allPhotos[enlargedImageIndex].width}
+              height={allPhotos[enlargedImageIndex].height}
               className="max-w-full max-h-full object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
