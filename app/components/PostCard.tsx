@@ -82,19 +82,22 @@ export default function PostCard({ tweet }: PostCardProps) {
       dataSource,
       index: index !== -1 ? index : 0,
       showHideAnimationType: 'zoom',
-      showAnimationDuration: 333,
-      hideAnimationDuration: 333,
-      bgOpacity: 0.9,
-      spacing: 0.1,
+      showAnimationDuration: 400,
+      hideAnimationDuration: 400,
+      bgOpacity: 0.95,
+      spacing: 0.12,
       allowPanToNext: true,
       zoom: true,
       close: true,
       arrowKeys: true,
       returnFocus: true,
       trapFocus: true,
-      clickToCloseNonZoomable: true,
-      imageClickAction: 'close',
-      tapAction: 'close'
+      clickToCloseNonZoomable: false,
+      imageClickAction: 'zoom-or-close',
+      tapAction: 'toggle-controls',
+      doubleTapAction: 'zoom',
+      preloaderDelay: 2000,
+      loop: true
     });
 
     lightbox.init();
