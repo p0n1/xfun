@@ -176,9 +176,9 @@ export default function PostCard({ tweet }: PostCardProps) {
               ? 'grid-cols-1' 
               : media.photos.length === 2 
               ? 'grid-cols-1 sm:grid-cols-2' 
-              : media.photos.length === 4
-              ? 'grid-cols-2'
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              : media.photos.length === 3
+              ? 'grid-cols-1 lg:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2'
           }`}>
             {media.photos.map((photo, index) => (
               <div
