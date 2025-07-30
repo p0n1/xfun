@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
+import PhotoSwipe from 'photoswipe';
+import 'photoswipe/style.css';
 
 interface Tweet {
   url: string;
@@ -41,10 +43,7 @@ interface PostCardProps {
 }
 
 export default function PostCard({ tweet }: PostCardProps) {
-  const [enlargedImageIndex, setEnlargedImageIndex] = useState<number | null>(null);
   const [clickCount, setClickCount] = useState(0);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   
   const allPhotos = [
     ...(tweet.media?.photos || []),
@@ -71,55 +70,34 @@ export default function PostCard({ tweet }: PostCardProps) {
 
   const openGallery = (photoUrl: string) => {
     const index = allPhotos.findIndex(photo => photo.url === photoUrl);
-    setEnlargedImageIndex(index !== -1 ? index : 0);
-  };
-
-  const closeGallery = () => {
-    setEnlargedImageIndex(null);
-  };
-
-  const navigateGallery = useCallback((direction: 'prev' | 'next') => {
-    if (enlargedImageIndex === null || allPhotos.length === 0) return;
     
-    if (direction === 'prev') {
-      setEnlargedImageIndex(enlargedImageIndex > 0 ? enlargedImageIndex - 1 : allPhotos.length - 1);
-    } else {
-      setEnlargedImageIndex(enlargedImageIndex < allPhotos.length - 1 ? enlargedImageIndex + 1 : 0);
-    }
-  }, [enlargedImageIndex, allPhotos.length]);
+    const dataSource = allPhotos.map((photo) => ({
+      src: photo.url,
+      width: photo.width,
+      height: photo.height,
+      alt: 'Tweet image'
+    }));
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY
+    const lightbox = new PhotoSwipe({
+      dataSource,
+      index: index !== -1 ? index : 0,
+      showHideAnimationType: 'zoom',
+      showAnimationDuration: 333,
+      hideAnimationDuration: 333,
+      bgOpacity: 0.9,
+      spacing: 0.1,
+      allowPanToNext: true,
+      zoom: true,
+      close: true,
+      arrowKeys: true,
+      returnFocus: true,
+      trapFocus: true,
+      clickToCloseNonZoomable: true,
+      imageClickAction: 'close',
+      tapAction: 'close'
     });
-  };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY
-    });
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distanceX = touchStart.x - touchEnd.x;
-    const distanceY = touchStart.y - touchEnd.y;
-    const isLeftSwipe = distanceX > 50;
-    const isRightSwipe = distanceX < -50;
-    const isVerticalSwipe = Math.abs(distanceY) > Math.abs(distanceX);
-    
-    if (isVerticalSwipe) return;
-    
-    if (isLeftSwipe && allPhotos.length > 1) {
-      navigateGallery('next');
-    }
-    if (isRightSwipe && allPhotos.length > 1) {
-      navigateGallery('prev');
-    }
+    lightbox.init();
   };
 
   const handleDateClick = (e: React.MouseEvent) => {
@@ -150,33 +128,6 @@ export default function PostCard({ tweet }: PostCardProps) {
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (enlargedImageIndex === null) return;
-      
-      switch (e.key) {
-        case 'Escape':
-          closeGallery();
-          break;
-        case 'ArrowLeft':
-          navigateGallery('prev');
-          break;
-        case 'ArrowRight':
-          navigateGallery('next');
-          break;
-      }
-    };
-
-    if (enlargedImageIndex !== null) {
-      document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
-  }, [enlargedImageIndex, navigateGallery]);
 
   const renderMedia = (media: Tweet['media']) => {
     if (!media) return null;
@@ -299,79 +250,6 @@ export default function PostCard({ tweet }: PostCardProps) {
         </div>
       </article>
 
-      {enlargedImageIndex !== null && allPhotos.length > 0 && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
-          onClick={closeGallery}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            <Image
-              src={allPhotos[enlargedImageIndex].url}
-              alt="Enlarged tweet image"
-              width={allPhotos[enlargedImageIndex].width}
-              height={allPhotos[enlargedImageIndex].height}
-              className="max-w-full max-h-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-            
-            {allPhotos.length > 1 && (
-              <div className="absolute inset-y-0 left-4 flex items-center">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigateGallery('prev');
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className="bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all transform hover:scale-110"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            
-            {allPhotos.length > 1 && (
-              <div className="absolute inset-y-0 right-4 flex items-center">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigateGallery('next');
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className="bg-black bg-opacity-50 text-white rounded-full p-3 hover:bg-opacity-75 transition-all transform hover:scale-110"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                closeGallery();
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-              className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-all transform hover:scale-110"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            {allPhotos.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-                {enlargedImageIndex + 1} / {allPhotos.length}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
