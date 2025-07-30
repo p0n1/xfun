@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface Tweet {
   url: string;
@@ -75,7 +75,7 @@ export default function PostCard({ tweet }: PostCardProps) {
     setEnlargedImageIndex(null);
   };
 
-  const navigateGallery = (direction: 'prev' | 'next') => {
+  const navigateGallery = useCallback((direction: 'prev' | 'next') => {
     if (enlargedImageIndex === null || allPhotos.length === 0) return;
     
     if (direction === 'prev') {
@@ -83,7 +83,7 @@ export default function PostCard({ tweet }: PostCardProps) {
     } else {
       setEnlargedImageIndex(enlargedImageIndex < allPhotos.length - 1 ? enlargedImageIndex + 1 : 0);
     }
-  };
+  }, [enlargedImageIndex, allPhotos.length]);
 
   const handleDateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -139,7 +139,7 @@ export default function PostCard({ tweet }: PostCardProps) {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [enlargedImageIndex]);
+  }, [enlargedImageIndex, navigateGallery]);
 
   const renderMedia = (media: Tweet['media']) => {
     if (!media) return null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PostCard from './components/PostCard';
 import ScrollToTop from './components/ScrollToTop';
 import Image from 'next/image';
@@ -221,7 +221,7 @@ export default function Home() {
     }
   }, []);
 
-  const fetchBatch = async (batchIndex: number, isInitial = false) => {
+  const fetchBatch = useCallback(async (batchIndex: number, isInitial = false) => {
     const startIndex = batchIndex * BATCH_SIZE;
     const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
     const batchUrls = urlList.slice(startIndex, endIndex);
@@ -276,9 +276,9 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
     }
-  };
+  }, [urlList]);
   
-  const loadMoreTweets = async () => {
+  const loadMoreTweets = useCallback(async () => {
     if (isLoadingMore || !hasMoreTweets) return;
     
     setIsLoadingMore(true);
@@ -286,7 +286,7 @@ export default function Home() {
     await fetchBatch(nextBatch);
     setCurrentBatch(nextBatch);
     setIsLoadingMore(false);
-  };
+  }, [isLoadingMore, hasMoreTweets, currentBatch, fetchBatch]);
 
   useEffect(() => {
     const initializeTweets = async () => {
@@ -302,7 +302,7 @@ export default function Home() {
     };
 
     initializeTweets();
-  }, [urlList]);
+  }, [urlList, fetchBatch]);
   
   useEffect(() => {
     const handleScroll = () => {
@@ -319,7 +319,7 @@ export default function Home() {
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, isLoadingMore, hasMoreTweets, currentBatch]);
+  }, [loading, isLoadingMore, hasMoreTweets, loadMoreTweets]);
 
   if (loading) {
     return (
