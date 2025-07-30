@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import PostCard from './components/PostCard';
 import ScrollToTop from './components/ScrollToTop';
+import Image from 'next/image';
 
 const DEMO_URLS = [
   'https://twitter.com/jack/status/20',
@@ -334,10 +335,17 @@ export default function Home() {
         <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <h1 
-              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors" 
+              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2" 
               onClick={() => window.location.reload()}
             >
-              🌟 X Fun
+              <Image 
+                src="/icon.svg" 
+                alt="X Fun Logo" 
+                width={32} 
+                height={32}
+                className="w-8 h-8"
+              />
+              X Fun
             </h1>
             <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
           </div>
@@ -366,10 +374,17 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <h1 
-                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors" 
+                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2" 
                 onClick={() => window.location.reload()}
               >
-                🌟 X Fun
+                <Image 
+                  src="/icon.svg" 
+                  alt="X Fun Logo" 
+                  width={32} 
+                  height={32}
+                  className="w-8 h-8"
+                />
+                X Fun
               </h1>
               <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
             </div>
