@@ -43,6 +43,8 @@ interface PostCardProps {
 export default function PostCard({ tweet }: PostCardProps) {
   const [enlargedImageIndex, setEnlargedImageIndex] = useState<number | null>(null);
   const [clickCount, setClickCount] = useState(0);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   
   const allPhotos = [
     ...(tweet.media?.photos || []),
@@ -85,6 +87,40 @@ export default function PostCard({ tweet }: PostCardProps) {
       setEnlargedImageIndex(enlargedImageIndex < allPhotos.length - 1 ? enlargedImageIndex + 1 : 0);
     }
   }, [enlargedImageIndex, allPhotos.length]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = touchStart.y - touchEnd.y;
+    const isLeftSwipe = distanceX > 50;
+    const isRightSwipe = distanceX < -50;
+    const isVerticalSwipe = Math.abs(distanceY) > Math.abs(distanceX);
+    
+    if (isVerticalSwipe) return;
+    
+    if (isLeftSwipe && allPhotos.length > 1) {
+      navigateGallery('next');
+    }
+    if (isRightSwipe && allPhotos.length > 1) {
+      navigateGallery('prev');
+    }
+  };
 
   const handleDateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -267,6 +303,9 @@ export default function PostCard({ tweet }: PostCardProps) {
         <div
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
           onClick={closeGallery}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <div className="relative w-full h-full flex items-center justify-center p-4">
             <Image
