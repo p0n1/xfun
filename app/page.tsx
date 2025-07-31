@@ -323,8 +323,17 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading tweets...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-4 shadow-lg">
+            <div className="flex gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+              <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+            </div>
+            <span className="text-lg font-medium text-gray-700">Finding awesome posts...</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -549,7 +558,14 @@ export default function Home() {
         
         {isLoadingMore && (
           <div className="flex items-center justify-center py-8">
-            <div className="text-lg text-gray-600">Loading more tweets...</div>
+            <div className="inline-flex items-center gap-3 bg-white rounded-full px-5 py-3 shadow-md border border-gray-100">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0ms'}}></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '200ms'}}></div>
+                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '400ms'}}></div>
+              </div>
+              <span className="text-base font-medium text-gray-600">Getting more fun posts...</span>
+            </div>
           </div>
         )}
         
