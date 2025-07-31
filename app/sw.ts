@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, StaleWhileRevalidate, NetworkFirst, ExpirationPlugin, RangeRequestsPlugin } from "serwist";
+import { Serwist, StaleWhileRevalidate, NetworkFirst, CacheFirst, ExpirationPlugin, RangeRequestsPlugin } from "serwist";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -52,7 +52,7 @@ const customRuntimeCaching = [
   {
     matcher: ({ url }: { url: URL }) => 
       url.hostname === 'pbs.twimg.com',
-    handler: new StaleWhileRevalidate({
+    handler: new CacheFirst({
       cacheName: 'twitter-images',
       plugins: [
         new ExpirationPlugin({
@@ -67,7 +67,7 @@ const customRuntimeCaching = [
   {
     matcher: ({ url }: { url: URL }) => 
       url.hostname === 'video.twimg.com',
-    handler: new StaleWhileRevalidate({
+    handler: new CacheFirst({
       cacheName: 'twitter-videos',
       plugins: [
         new ExpirationPlugin({
