@@ -15,6 +15,8 @@ This led me to create a dedicated X/Twitter List Viewer. Instead of navigating t
 - **Expandable Images**: Click any photo to view it full-size
 - **URL Flexibility**: Supports both twitter.com and x.com URLs
 - **Kid-friendly**: Designed for young viewers, fostering curiosity without distractions
+- **Progressive Web App (PWA)**: Install as an app on your device for native-like experience
+- **Offline Support**: View previously loaded posts even without internet connection
 - **Self-hosting Friendly**: Easy to deploy on your own server or hosting platform
 - **Privacy-focused**: All requests are sent from your browser — the hosting server never sees your lists
 
@@ -74,6 +76,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Technical Details
 
 - **Framework**: Built with [Next.js](https://nextjs.org) for optimal performance
+- **PWA**: Progressive Web App support with [Serwist](https://serwist.pages.dev) for offline functionality and app installation
 - **API**: Uses [FxEmbed API](https://api.fxtwitter.com) — no API keys required
 - **Styling**: System font stack for consistent, fast-loading typography
 - **Architecture**: Client-side only (server serves static files for simplicity)
