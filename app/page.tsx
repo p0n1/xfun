@@ -356,7 +356,7 @@ export default function Home() {
               />
               X Fun
             </h1>
-            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
+            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
           </div>
         </header>
         
@@ -395,7 +395,7 @@ export default function Home() {
                 />
                 X Fun
               </h1>
-              <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and exciting X/Twitter content for curious minds</p>
+              <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
             </div>
             <div className="flex gap-2">
               <div className="relative">
