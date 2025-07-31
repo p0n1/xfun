@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, StaleWhileRevalidate, NetworkFirst, ExpirationPlugin } from "serwist";
+import { Serwist, StaleWhileRevalidate, NetworkFirst, ExpirationPlugin, RangeRequestsPlugin } from "serwist";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -63,7 +63,7 @@ const customRuntimeCaching = [
       ]
     })
   },
-  // Twitter videos: 1-week storage-conscious caching
+  // Twitter videos: 1-week storage-conscious caching with range request support
   {
     matcher: ({ url }: { url: URL }) => 
       url.hostname === 'video.twimg.com',
@@ -74,7 +74,8 @@ const customRuntimeCaching = [
           maxEntries: 100,
           maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
           maxAgeFrom: "last-used"
-        })
+        }),
+        new RangeRequestsPlugin()
       ]
     })
   },
