@@ -415,7 +415,7 @@ export default function Home() {
                   {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
                 </button>
                 {showDemoOptions && (
-                  <div className="absolute top-full mt-1 left-1/2 -translate-x-4/5 sm:left-auto sm:right-0 sm:translate-x-0 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
+                  <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
                     <div className="p-3 border-b">
                       <button
                         onClick={handleLoadDemo}
