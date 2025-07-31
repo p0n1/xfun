@@ -1,0 +1,23 @@
+{
+  "name": "X Fun",
+  "short_name": "X Fun",
+  "description": "Fun and engaging content for curious minds",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#1da1f2",
+  "orientation": "portrait-primary",
+  "categories": ["entertainment", "social"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

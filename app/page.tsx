@@ -346,6 +346,7 @@ export default function Home() {
             <h1 
               className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2" 
               onClick={() => window.location.reload()}
+              title="Click to refresh and get new posts"
             >
               <Image 
                 src="/icon.svg" 
@@ -380,11 +381,12 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="space-y-3">
+            <div className="text-center">
               <h1 
-                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2" 
+                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center justify-center gap-2" 
                 onClick={() => window.location.reload()}
+                title="Click to refresh and get new posts"
               >
                 <Image 
                   src="/icon.svg" 
@@ -397,7 +399,14 @@ export default function Home() {
               </h1>
               <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30 transition-all hover:scale-105"
+                title="Refresh to get new posts"
+              >
+                🔄 Refresh
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setShowDemoOptions(!showDemoOptions)}
@@ -406,7 +415,7 @@ export default function Home() {
                   {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
                 </button>
                 {showDemoOptions && (
-                  <div className="absolute top-full mt-1 left-1/2 -translate-x-4/5 sm:left-auto sm:right-0 sm:translate-x-0 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
+                  <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
                     <div className="p-3 border-b">
                       <button
                         onClick={handleLoadDemo}
