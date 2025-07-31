@@ -52,7 +52,7 @@ const customRuntimeCaching = [
   {
     matcher: ({ url }: { url: URL }) => 
       url.hostname === 'pbs.twimg.com',
-    handler: new CacheFirst({
+    handler: new StaleWhileRevalidate({
       cacheName: 'twitter-images',
       plugins: [
         new ExpirationPlugin({
