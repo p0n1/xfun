@@ -7,7 +7,7 @@
   "background_color": "#000000",
   "theme_color": "#1da1f2",
   "orientation": "portrait-primary",
-  "categories": ["entertainment", "social"],
+  "categories": ["fun", "education", "children", "entertainment", "social"],
   "icons": [
     {
       "src": "/icon.svg",
