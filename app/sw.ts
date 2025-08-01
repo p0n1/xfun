@@ -65,8 +65,13 @@ const customRuntimeCaching = [
   },
   // Twitter videos: CacheFirst with range request support for video playback
   {
-    matcher: ({ url }: { url: URL }) => 
-      url.hostname === 'video.twimg.com',
+    matcher: ({ url }: { url: URL }) => {
+      const isMatch = url.hostname === 'video.twimg.com';
+      if (isMatch) {
+        console.log('Twitter video matcher hit:', url.href);
+      }
+      return isMatch;
+    },
     handler: new CacheFirst({
       cacheName: 'twitter-videos',
       plugins: [
