@@ -67,7 +67,7 @@ const customRuntimeCaching = [
   {
     matcher: ({ url }: { url: URL }) => 
       url.hostname === 'video.twimg.com',
-    handler: new CacheFirst({
+    handler: new StaleWhileRevalidate({
       cacheName: 'twitter-videos',
       plugins: [
         new ExpirationPlugin({
