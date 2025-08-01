@@ -13,7 +13,7 @@ export default function DynamicManifest() {
         name: "X Fun",
         short_name: "X Fun",
         description: "Fun and engaging content for curious minds",
-        start_url: listParam ? `/?list=${encodeURIComponent(listParam)}` : '/',
+        start_url: listParam ? `/?list=${listParam}` : '/',
         display: "standalone",
         background_color: "#000000",
         theme_color: "#1da1f2",
