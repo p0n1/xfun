@@ -65,13 +65,8 @@ const customRuntimeCaching = [
   },
   // Twitter videos: 1-week storage-conscious caching with range request support
   {
-    matcher: ({ url }: { url: URL }) => {
-      const isVideoTwimg = url.hostname === 'video.twimg.com';
-      if (isVideoTwimg) {
-        console.log('🎥 Service worker intercepting video request:', url.href);
-      }
-      return isVideoTwimg;
-    },
+    matcher: ({ url }: { url: URL }) => 
+      url.hostname === 'video.twimg.com',
     handler: new CacheFirst({
       cacheName: 'twitter-videos',
       plugins: [
@@ -95,7 +90,5 @@ const serwist = new Serwist({
   navigationPreload: true,
   runtimeCaching: customRuntimeCaching,
 });
-
-console.log('🚀 Service worker initialized');
 
 serwist.addEventListeners();
