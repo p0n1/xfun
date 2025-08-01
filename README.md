@@ -6,6 +6,8 @@ As a parent, I often discover fascinating posts on X (formerly Twitter) that I b
 
 This led me to create a dedicated X/Twitter List Viewer. Instead of navigating the busy X interface, I can now curate interesting posts by collecting their URLs in a simple text file, then display them through this clean, focused website. The result is a distraction-free viewing experience that's actually better than browsing X.com directly — perfect for sharing educational, entertaining, or inspiring content with children without the noise of a full social media platform.
 
+You can also join the discussion about this project on [reddit](https://www.reddit.com/r/selfhosted/comments/1mc8od3/xtwitter_list_viewer_clean_way_to_share_curated/)
+
 ## Features
 
 - **Clean Interface**: Displays X/Twitter posts without distracting elements
