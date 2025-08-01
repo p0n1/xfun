@@ -18,7 +18,7 @@ declare const self: WorkerGlobalScope;
 const customRuntimeCaching = [
   // External list URLs: NetworkFirst for fresh content, 1-week offline fallback
   {
-    matcher: ({ url }: { url: URL }) => 
+    matcher: ({ url }: { url: URL }) =>
       url.hostname === 'raw.githubusercontent.com' ||
       url.hostname === 'gist.githubusercontent.com' ||
       url.hostname === 'api.allorigins.win',
@@ -27,8 +27,8 @@ const customRuntimeCaching = [
       networkTimeoutSeconds: 5, // Quick timeout to avoid slow loading
       plugins: [
         new ExpirationPlugin({
-          maxEntries: 20, // Limited lists to save storage
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week offline capability
+          maxEntries: 20,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
           maxAgeFrom: "last-used"
         })
       ]
@@ -50,14 +50,29 @@ const customRuntimeCaching = [
   },
   // Twitter images: 1-week storage-conscious caching
   {
-    matcher: ({ url }: { url: URL }) => 
+    matcher: ({ url }: { url: URL }) =>
       url.hostname === 'pbs.twimg.com',
-    handler: new StaleWhileRevalidate({
+    handler: new CacheFirst({
       cacheName: 'twitter-images',
       plugins: [
         new ExpirationPlugin({
           maxEntries: 400,
           maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          maxAgeFrom: "last-used"
+        })
+      ]
+    })
+  },
+  // Twitter videos: Works on Safari and Chromium but not Brave
+  {
+    matcher: ({ url }: { url: URL }) => url.hostname === 'video.twimg.com',
+    handler: new CacheFirst({
+      cacheName: 'twitter-videos',
+      plugins: [
+        new RangeRequestsPlugin(),
+        new ExpirationPlugin({
+          maxEntries: 50,
+          maxAgeSeconds: 7 * 24 * 60 * 60,
           maxAgeFrom: "last-used"
         })
       ]
