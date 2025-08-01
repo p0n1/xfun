@@ -63,6 +63,22 @@ const customRuntimeCaching = [
       ]
     })
   },
+  // Twitter videos: CacheFirst with range request support for video playback
+  {
+    matcher: ({ url }: { url: URL }) => 
+      url.hostname === 'video.twimg.com',
+    handler: new CacheFirst({
+      cacheName: 'twitter-videos',
+      plugins: [
+        new RangeRequestsPlugin(),
+        new ExpirationPlugin({
+          maxEntries: 50,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          maxAgeFrom: "last-used"
+        })
+      ]
+    })
+  },
   // Include default caching strategies for other content
   ...defaultCache
 ];
