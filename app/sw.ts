@@ -63,30 +63,6 @@ const customRuntimeCaching = [
       ]
     })
   },
-  // Twitter videos: 1-week storage-conscious caching with range request support
-  {
-    matcher: ({ url }: { url: URL }) => 
-      url.hostname === 'video.twimg.com',
-    handler: new NetworkFirst({
-      cacheName: 'twitter-videos',
-      plugins: [
-        {
-          cacheWillUpdate: async ({ response }) => {
-            if (response.status === 200 || response.status === 206 || response.status === 0) {
-              return response;
-            }
-            return null;
-          },
-        },
-        new ExpirationPlugin({
-          maxEntries: 100,
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
-          maxAgeFrom: "last-used"
-        }),
-        new RangeRequestsPlugin()
-      ]
-    })
-  },
   // Include default caching strategies for other content
   ...defaultCache
 ];
