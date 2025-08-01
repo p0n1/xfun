@@ -149,7 +149,7 @@ export default function PostCard({ tweet }: PostCardProps) {
                     aspectRatio: `${video.width}/${video.height}`,
                     maxHeight: 'min(70vh, 400px)'
                   }}
-                  preload="metadata"
+                  preload="auto"
                 >
                   <source src={getBestVideoUrl(video.variants)} type="video/mp4" />
                   Your browser does not support the video tag.
