@@ -131,6 +131,20 @@ export default function PostCard({ tweet }: PostCardProps) {
     }
   };
 
+  const pauseAllOtherVideos = (currentVideo: HTMLVideoElement) => {
+    // Get all video elements on the page
+    const allVideos = document.querySelectorAll('video');
+    allVideos.forEach(video => {
+      if (video !== currentVideo && !video.paused) {
+        video.pause();
+      }
+    });
+  };
+
+  const handleVideoPlay = (video: HTMLVideoElement) => {
+    pauseAllOtherVideos(video);
+  };
+
 
   const renderMedia = (media: Tweet['media']) => {
     if (!media) return null;
@@ -150,6 +164,7 @@ export default function PostCard({ tweet }: PostCardProps) {
                     maxHeight: 'min(70vh, 400px)'
                   }}
                   preload="metadata"
+                  onPlay={(e) => handleVideoPlay(e.currentTarget)}
                 >
                   <source src={getBestVideoUrl(video.variants)} type="video/mp4" />
                   Your browser does not support the video tag.
