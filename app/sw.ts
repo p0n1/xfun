@@ -63,17 +63,16 @@ const customRuntimeCaching = [
       ]
     })
   },
-  // Twitter videos: NetworkFirst with range request support for video playback
+  // Twitter videos: Works on Safari, Chromium has range request issues
   {
     matcher: ({ url }: { url: URL }) => url.hostname === 'video.twimg.com',
-    handler: new NetworkFirst({
+    handler: new CacheFirst({
       cacheName: 'twitter-videos',
-      networkTimeoutSeconds: 3,
       plugins: [
         new RangeRequestsPlugin(),
         new ExpirationPlugin({
-          maxEntries: 50,
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          maxEntries: 30,
+          maxAgeSeconds: 7 * 24 * 60 * 60,
           maxAgeFrom: "last-used"
         })
       ]
