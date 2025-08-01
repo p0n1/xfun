@@ -70,6 +70,14 @@ const customRuntimeCaching = [
     handler: new NetworkFirst({
       cacheName: 'twitter-videos',
       plugins: [
+        {
+          cacheWillUpdate: async ({ response }) => {
+            if (response.status === 200 || response.status === 206 || response.status === 0) {
+              return response;
+            }
+            return null;
+          },
+        },
         new ExpirationPlugin({
           maxEntries: 100,
           maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
