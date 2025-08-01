@@ -290,9 +290,13 @@ export default function Home() {
 
   useEffect(() => {
     const initializeTweets = async () => {
-      if (urlList.length === 0) return;
-      
       setLoading(true);
+      
+      if (urlList.length === 0) {
+        setLoading(false);
+        return;
+      }
+      
       setTweets([]);
       setCurrentBatch(0);
       setHasMoreTweets(true);
