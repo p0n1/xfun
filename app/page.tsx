@@ -120,20 +120,70 @@ export default function Home() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreTweets, setHasMoreTweets] = useState(true);
 
+  // CORS proxy fallback system - tries proxies in order of reliability
+  // https://gist.github.com/reynaldichernando/eab9c4e31e30677f176dc9eb732963ef CORS proxies list
+  const fetchWithCorsProxy = async (url: string): Promise<string> => {
+    const proxies = [
+      {
+        name: 'codetabs',
+        url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+        extractContent: (response: string) => response // Returns content directly
+      },
+      {
+        name: 'corsproxy.io',
+        url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        extractContent: (response: string) => response // Returns content directly
+      },
+      {
+        name: 'allorigins',
+        url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        extractContent: (response: string) => {
+          const data = JSON.parse(response);
+          return data.contents;
+        }
+      }
+    ];
+
+    let lastError: Error | null = null;
+    
+    for (const proxy of proxies) {
+      try {
+        console.log(`Trying CORS proxy: ${proxy.name}`);
+        const response = await fetch(proxy.url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const text = await response.text();
+        const content = proxy.extractContent(text);
+        
+        console.log(`Successfully fetched via ${proxy.name}`);
+        return content;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`CORS proxy ${proxy.name} failed: ${errorMsg}`);
+        lastError = error instanceof Error ? error : new Error(errorMsg);
+        continue;
+      }
+    }
+    
+    throw lastError || new Error('All CORS proxies failed');
+  };
+
   const fetchUrlList = async (listUrl: string) => {
     setIsLoadingList(true);
+    // Use CORS proxy for URLs that don't support CORS
+    const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
+    
     try {
-      // Use CORS proxy for URLs that don't support CORS
-      const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
-      const finalUrl = needsProxy ? `https://api.allorigins.win/get?url=${encodeURIComponent(listUrl)}` : listUrl;
+      let text: string;
       
-      const response = await fetch(finalUrl);
-      let text = await response.text();
-      
-      // If using CORS proxy, extract the actual content
       if (needsProxy) {
-        const data = JSON.parse(text);
-        text = data.contents;
+        text = await fetchWithCorsProxy(listUrl);
+      } else {
+        const response = await fetch(listUrl);
+        text = await response.text();
       }
       const rawUrls = text
         .split('\n')
@@ -154,7 +204,17 @@ export default function Home() {
         setError('No valid Twitter/X URLs found in the list');
       }
     } catch (err) {
-      setError('Failed to fetch URL list. Make sure the URL is accessible and contains valid Twitter/X URLs.');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      
+      // Provide more specific error messages
+      if (needsProxy && errorMessage.includes('All CORS proxies failed')) {
+        setError('All CORS proxies failed to load the URL. The services may be temporarily down. Please try again later or use a different URL source (GitHub, Gist).');
+      } else if (needsProxy) {
+        setError(`CORS proxy error: ${errorMessage}. Try using GitHub raw URLs or Gists instead.`);
+      } else {
+        setError(`Failed to load URL list: ${errorMessage}. Make sure the URL is accessible and contains valid Twitter/X URLs.`);
+      }
+      
       console.error('Failed to fetch URL list:', err);
     } finally {
       setIsLoadingList(false);
@@ -479,7 +539,7 @@ export default function Home() {
                 <ul className="space-y-1 text-white/90">
                   <li>• <strong>GitHub:</strong> Create a public repo → Upload .txt file → Use raw URL</li>
                   <li>• <strong>GitHub Gist:</strong> Create public gist → Use raw URL</li>
-                  <li>• <strong>Pastebin:</strong> Any public paste URL (uses CORS proxy)</li>
+                  <li>• <strong>Pastebin:</strong> Any public paste URL (uses multiple CORS proxies with fallback)</li>
                 </ul>
                 <p className="mt-2 text-white/80 text-xs">
                   <strong>Format:</strong> One URL per line, comments allowed after URLs. Check examples above for working URLs.

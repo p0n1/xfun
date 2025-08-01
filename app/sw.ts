@@ -21,13 +21,15 @@ const customRuntimeCaching = [
     matcher: ({ url }: { url: URL }) =>
       url.hostname === 'raw.githubusercontent.com' ||
       url.hostname === 'gist.githubusercontent.com' ||
+      url.hostname === 'api.codetabs.com' ||
+      url.hostname === 'corsproxy.io' ||
       url.hostname === 'api.allorigins.win',
     handler: new NetworkFirst({
       cacheName: 'external-lists',
       networkTimeoutSeconds: 5, // Quick timeout to avoid slow loading
       plugins: [
         new ExpirationPlugin({
-          maxEntries: 20,
+          maxEntries: 60,
           maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
           maxAgeFrom: "last-used"
         })
