@@ -38,11 +38,11 @@ interface Tweet {
   quote?: Tweet;
 }
 
-interface PostCardProps {
+interface XPostCardProps {
   tweet: Tweet;
 }
 
-export default function PostCard({ tweet }: PostCardProps) {
+export default function XPostCard({ tweet }: XPostCardProps) {
   const [clickCount, setClickCount] = useState(0);
   
   const allPhotos = [

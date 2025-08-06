@@ -1,20 +1,27 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import PostCard from './components/PostCard';
+import XPostCard from './components/XPostCard';
+import YouTubeCard from './components/YouTubeCard';
 import ScrollToTop from './components/ScrollToTop';
 import Image from 'next/image';
+import { getContentType, normalizeXUrl } from './utils/urlDetection';
 
 const DEMO_URLS = [
+  'https://www.youtube.com/watch?v=VxkMSkDF8vY',
   'https://x.com/SpaceX/status/1949680387330027593',
   'https://x.com/SpaceX/status/1949993416604951017',
+  'https://www.youtube.com/watch?v=hI9HQfCAw64',
   'https://x.com/AMAZlNGNATURE/status/1932563688667373813',
+  'https://www.youtube.com/watch?v=AZ7AcvbebKo',
   'https://x.com/NoContextHumans/status/1949803858063970648',
   'https://x.com/niccruzpatane/status/1946967976005042231',
   'https://x.com/SpaceX/status/1946437942265987384',
+  'https://youtu.be/2R8V68viXqk',
   'https://x.com/johnkrausphotos/status/1947054042787762669',
   'https://x.com/SpaceBasedFox/status/1946403321646116865',
   'https://x.com/AMAZlNGNATURE/status/1941281137915040187',
+  'https://www.youtube.com/watch?v=6yb6cSHqEGs',
   'https://x.com/satofishi/status/1908020230561075521',
   'https://x.com/Rainmaker1973/status/1950054930384830578',
   'https://x.com/Rainmaker1973/status/1945522890889212414',
@@ -78,15 +85,19 @@ interface Tweet {
   quote?: Tweet;
 }
 
+interface ContentItem {
+  type: 'twitter' | 'youtube';
+  url: string;
+  data?: Tweet;
+  id: string;
+}
+
 interface ApiResponse {
   code: number;
   message: string;
   tweet: Tweet;
 }
 
-function normalizeUrl(url: string): string {
-  return url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://api.fxtwitter.com');
-}
 
 function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRemoved: number } {
   const seen = new Set<string>();
@@ -107,7 +118,7 @@ function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRe
 }
 
 export default function Home() {
-  const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [urlList, setUrlList] = useState<string[]>([]);
@@ -118,7 +129,7 @@ export default function Home() {
   const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0, duplicatesRemoved: 0 });
   const [currentBatch, setCurrentBatch] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreTweets, setHasMoreTweets] = useState(true);
+  const [hasMoreContent, setHasMoreContent] = useState(true);
 
   // CORS proxy fallback system - tries proxies in order of reliability
   // https://gist.github.com/reynaldichernando/eab9c4e31e30677f176dc9eb732963ef CORS proxies list
@@ -171,7 +182,7 @@ export default function Home() {
     throw lastError || new Error('All CORS proxies failed');
   };
 
-  const fetchUrlList = async (listUrl: string) => {
+  const fetchUrlList = useCallback(async (listUrl: string) => {
     setIsLoadingList(true);
     // Use CORS proxy for URLs that don't support CORS
     const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
@@ -190,8 +201,15 @@ export default function Home() {
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
         .map(line => {
-          const urlMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
-          return urlMatch ? urlMatch[1] : null;
+          // Match Twitter/X URLs
+          const twitterMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
+          if (twitterMatch) return twitterMatch[1];
+          
+          // Match YouTube URLs
+          const youtubeMatch = line.match(/^(https:\/\/(?:www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s]*)/);
+          if (youtubeMatch) return youtubeMatch[1];
+          
+          return null;
         })
         .filter((url): url is string => url !== null);
       
@@ -201,7 +219,7 @@ export default function Home() {
         setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
         setError(null);
       } else {
-        setError('No valid Twitter/X URLs found in the list');
+        setError('No valid Twitter/X or YouTube URLs found in the list');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -219,7 +237,7 @@ export default function Home() {
     } finally {
       setIsLoadingList(false);
     }
-  };
+  }, []);
 
   const handleLoadExternalList = () => {
     if (externalUrl.trim()) {
@@ -279,7 +297,7 @@ export default function Home() {
       setUrlList(deduplicated);
       setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
     }
-  }, []);
+  }, [fetchUrlList]);
 
   const fetchBatch = useCallback(async (batchIndex: number, isInitial = false) => {
     const startIndex = batchIndex * BATCH_SIZE;
@@ -287,69 +305,86 @@ export default function Home() {
     const batchUrls = urlList.slice(startIndex, endIndex);
     
     if (batchUrls.length === 0) {
-      setHasMoreTweets(false);
+      setHasMoreContent(false);
       return;
     }
     
     try {
-      const promises = batchUrls.map(async (url) => {
-        const apiUrl = normalizeUrl(url);
-        const response = await fetch(apiUrl);
-        const data: ApiResponse = await response.json();
+      const promises = batchUrls.map(async (url): Promise<ContentItem> => {
+        const contentType = getContentType(url);
         
-        if (data.code === 200) {
-          return data.tweet;
+        if (contentType === 'youtube') {
+          return {
+            type: 'youtube',
+            url,
+            id: url
+          };
+        } else if (contentType === 'twitter') {
+          const apiUrl = normalizeXUrl(url);
+          const response = await fetch(apiUrl);
+          const data: ApiResponse = await response.json();
+          
+          if (data.code === 200) {
+            return {
+              type: 'twitter',
+              url,
+              data: data.tweet,
+              id: data.tweet.id
+            };
+          }
+          throw new Error(`Failed to fetch tweet: ${data.message}`);
         }
-        throw new Error(`Failed to fetch tweet: ${data.message}`);
+        
+        throw new Error(`Unsupported content type for URL: ${url}`);
       });
 
       const results = await Promise.allSettled(promises);
-      const successfulTweets = results
-        .filter((result): result is PromiseFulfilledResult<Tweet> => result.status === 'fulfilled')
+      const successfulContent = results
+        .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
         .map(result => result.value);
 
       const failedCount = results.filter(result => result.status === 'rejected').length;
       
       if (isInitial) {
-        setTweets(successfulTweets);
+        setContentItems(successfulContent);
         setLoadStats(prev => ({
           ...prev,
-          successful: successfulTweets.length,
+          successful: successfulContent.length,
           failed: failedCount,
           total: urlList.length
         }));
       } else {
-        let newTweets: Tweet[] = [];
-        setTweets(prev => {
-          const existingIds = new Set(prev.map(tweet => tweet.id));
-          newTweets = successfulTweets.filter(tweet => !existingIds.has(tweet.id));
-          return [...prev, ...newTweets];
+        let newContent: ContentItem[] = [];
+        setContentItems(prev => {
+          const existingIds = new Set(prev.map(item => item.id));
+          newContent = successfulContent.filter(item => !existingIds.has(item.id));
+          return [...prev, ...newContent];
         });
         setLoadStats(prev => ({
           ...prev,
-          successful: prev.successful + newTweets.length,
+          successful: prev.successful + newContent.length,
           failed: prev.failed + failedCount
         }));
       }
       
-      setHasMoreTweets(endIndex < urlList.length);
+      setHasMoreContent(endIndex < urlList.length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch tweets');
+      setError(err instanceof Error ? err.message : 'Failed to fetch content');
     }
   }, [urlList]);
   
-  const loadMoreTweets = useCallback(async () => {
-    if (isLoadingMore || !hasMoreTweets) return;
+  const loadMoreContent = useCallback(async () => {
+    if (isLoadingMore || !hasMoreContent) return;
     
     setIsLoadingMore(true);
     const nextBatch = currentBatch + 1;
     await fetchBatch(nextBatch);
     setCurrentBatch(nextBatch);
     setIsLoadingMore(false);
-  }, [isLoadingMore, hasMoreTweets, currentBatch, fetchBatch]);
+  }, [isLoadingMore, hasMoreContent, currentBatch, fetchBatch]);
 
   useEffect(() => {
-    const initializeTweets = async () => {
+    const initializeContent = async () => {
       setLoading(true);
       
       if (urlList.length === 0) {
@@ -357,33 +392,33 @@ export default function Home() {
         return;
       }
       
-      setTweets([]);
+      setContentItems([]);
       setCurrentBatch(0);
-      setHasMoreTweets(true);
+      setHasMoreContent(true);
       
       await fetchBatch(0, true);
       setLoading(false);
     };
 
-    initializeTweets();
+    initializeContent();
   }, [urlList, fetchBatch]);
   
   useEffect(() => {
     const handleScroll = () => {
-      if (loading || isLoadingMore || !hasMoreTweets) return;
+      if (loading || isLoadingMore || !hasMoreContent) return;
       
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       
       if (scrollTop + windowHeight >= documentHeight - 1000) {
-        loadMoreTweets();
+        loadMoreContent();
       }
     };
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, isLoadingMore, hasMoreTweets, loadMoreTweets]);
+  }, [loading, isLoadingMore, hasMoreContent, loadMoreContent]);
 
   if (loading) {
     return (
@@ -624,9 +659,14 @@ export default function Home() {
         )}
         
         <div className="space-y-6">
-          {tweets.map((tweet) => (
-            <PostCard key={tweet.id} tweet={tweet} />
-          ))}
+          {contentItems.map((item) => {
+            if (item.type === 'youtube') {
+              return <YouTubeCard key={item.id} url={item.url} />;
+            } else if (item.type === 'twitter' && item.data) {
+              return <XPostCard key={item.id} tweet={item.data} />;
+            }
+            return null;
+          })}
         </div>
         
         {isLoadingMore && (
@@ -642,20 +682,20 @@ export default function Home() {
           </div>
         )}
         
-        {!loading && !isLoadingMore && hasMoreTweets && tweets.length > 0 && (
+        {!loading && !isLoadingMore && hasMoreContent && contentItems.length > 0 && (
           <div className="flex items-center justify-center py-8">
             <button
-              onClick={loadMoreTweets}
+              onClick={loadMoreContent}
               className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
             >
-              Load More Tweets
+              Load More Content
             </button>
           </div>
         )}
         
-        {!loading && !hasMoreTweets && tweets.length > 0 && (
+        {!loading && !hasMoreContent && contentItems.length > 0 && (
           <div className="flex items-center justify-center py-8">
-            <div className="text-gray-500">🎉 All tweets loaded!</div>
+            <div className="text-gray-500">🎉 All content loaded!</div>
           </div>
         )}
       </main>
