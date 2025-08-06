@@ -80,6 +80,35 @@ const customRuntimeCaching = [
       ]
     })
   },
+  // YouTube oEmbed API responses: 1-week caching
+  {
+    matcher: ({ url }: { url: URL }) => 
+      url.hostname === 'www.youtube.com' && url.pathname === '/oembed',
+    handler: new StaleWhileRevalidate({
+      cacheName: 'youtube-oembed',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 100,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          maxAgeFrom: "last-used"
+        })
+      ]
+    })
+  },
+  // YouTube image thumbnails: 1-week caching
+  {
+    matcher: ({ url }: { url: URL }) => url.hostname === 'i.ytimg.com',
+    handler: new CacheFirst({
+      cacheName: 'youtube-images',
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 200,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          maxAgeFrom: "last-used"
+        })
+      ]
+    })
+  },
   // Include default caching strategies for other content
   ...defaultCache
 ];
