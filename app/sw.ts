@@ -95,20 +95,6 @@ const customRuntimeCaching = [
       ]
     })
   },
-  // YouTube image thumbnails: 1-week caching
-  {
-    matcher: ({ url }: { url: URL }) => url.hostname === 'i.ytimg.com',
-    handler: new CacheFirst({
-      cacheName: 'youtube-images',
-      plugins: [
-        new ExpirationPlugin({
-          maxEntries: 200,
-          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
-          maxAgeFrom: "last-used"
-        })
-      ]
-    })
-  },
   // Include default caching strategies for other content
   ...defaultCache
 ];
