@@ -1,4 +1,4 @@
-# X Fun - Clean X/Twitter List Viewer
+# X Fun - Clean X/Twitter and YouTube Viewer
 
 ## The Story
 
@@ -10,12 +10,13 @@ You can also join the discussion about this project on [reddit](https://www.redd
 
 ## Features
 
-- **Clean Interface**: Displays X/Twitter posts without distracting elements
-- **Multi-format Support**: Handles text, images, videos, and mixed content
+- **Clean Interface**: Displays X/Twitter posts and YouTube videos without distracting elements
+- **Multi-platform Support**: Handles content from both X/Twitter and YouTube.
+- **Multi-format Support**: Handles text, images, videos, and mixed content from X/Twitter.
 - **Responsive Design**: Works seamlessly on mobile and desktop devices
-- **Direct Media Playback**: Videos and images play directly without redirects to X.com
+- **Direct Media Playback**: Videos play directly without redirects to X.com or YouTube.
 - **Expandable Images**: Click any photo to view it full-size
-- **URL Flexibility**: Supports both twitter.com and x.com URLs
+- **URL Flexibility**: Supports `twitter.com`, `x.com`, and `youtube.com` URLs.
 - **Kid-friendly**: Designed for young viewers, fostering curiosity without distractions
 - **Progressive Web App (PWA)**: Install as an app on your device for native-like experience
 - **Offline Support**: View previously loaded posts even without internet connection
@@ -31,7 +32,7 @@ You can also join the discussion about this project on [reddit](https://www.redd
 
 ### Custom Lists
 
-1. Create a plain text file with X/Twitter URLs (one per line)
+1. Create a plain text file with X/Twitter or YouTube URLs (one per line)
 2. Upload to a publicly accessible location:
    - **GitHub**: Create public repo → Upload .txt file → Copy raw URL
    - **GitHub Gist**: Create public gist → Copy raw URL
@@ -47,8 +48,11 @@ Some hosting services may block cross-origin requests (CORS). If your list fails
 2. **Use GitHub** (recommended) — always supports CORS for raw URLs
 3. **Pastebin URLs** are automatically handled with a CORS proxy
 
-### Supported URL Format
+### Supported URL Formats
 
+The viewer supports both X/Twitter and YouTube URLs.
+
+**X/Twitter URLs**
 ```
 https://x.com/username/status/1234567890
 https://twitter.com/username/status/1234567890 # Comments are allowed after URLs
@@ -56,8 +60,13 @@ https://x.com/SpaceX/status/1949680387330027593
 https://x.com/SpaceX/status/1949993416604951017 #starship
 https://x.com/SpaceX/status/1949605880863047750 #falcon9
 ```
-
 The viewer automatically handles both `twitter.com` and `x.com` URLs and fetches content using the [FxEmbed API](https://api.fxtwitter.com).
+
+**YouTube URLs**
+```
+https://www.youtube.com/watch?v=AZ7AcvbebKo
+https://youtu.be/2R8V68viXqk # Comments are also allowed
+```
 
 ## Local Development
 
@@ -79,7 +88,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - **Framework**: Built with [Next.js](https://nextjs.org) for optimal performance
 - **PWA**: Progressive Web App support with [Serwist](https://serwist.pages.dev) for offline functionality and app installation
-- **API**: Uses [FxEmbed API](https://api.fxtwitter.com) — no API keys required
+- **API**: Uses [FxEmbed API](https://api.fxtwitter.com) for X/Twitter content — no API keys required
 - **Styling**: System font stack for consistent, fast-loading typography
 - **Architecture**: Client-side only (server serves static files for simplicity)
 - **Self-hosting**: Can be easily deployed to any static hosting service (Vercel, Netlify, GitHub Pages, etc.)
