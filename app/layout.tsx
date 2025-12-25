@@ -6,6 +6,9 @@ import DynamicManifest from "./components/DynamicManifest";
 export const metadata: Metadata = {
   title: "X Fun",
   description: "Fun and engaging content for curious minds",
+  // Twitter now returns 403 for hotlinked videos when a third-party Referer is present.
+  // Using a no-referrer policy fixes direct video.twimg.com playback without a server proxy.
+  referrer: "no-referrer",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
