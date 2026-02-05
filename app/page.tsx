@@ -125,7 +125,7 @@ function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRe
   const seen = new Set<string>();
   const deduplicated: string[] = [];
   let duplicatesRemoved = 0;
-  
+
   for (const url of urls) {
     const normalizedForComparison = url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://x.com');
     if (!seen.has(normalizedForComparison)) {
@@ -135,7 +135,7 @@ function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRe
       duplicatesRemoved++;
     }
   }
-  
+
   return { deduplicated, duplicatesRemoved };
 }
 
@@ -158,9 +158,12 @@ export default function Home() {
   const fetchWithCorsProxy = async (url: string): Promise<string> => {
     const proxies = [
       {
-        name: 'codetabs',
-        url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => response // Returns content directly
+        name: 'allorigins',
+        url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        extractContent: (response: string) => {
+          const data = JSON.parse(response);
+          return data.contents;
+        }
       },
       {
         name: 'corsproxy.io',
@@ -168,26 +171,23 @@ export default function Home() {
         extractContent: (response: string) => response // Returns content directly
       },
       {
-        name: 'allorigins',
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => {
-          const data = JSON.parse(response);
-          return data.contents;
-        }
+        name: 'codetabs',
+        url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+        extractContent: (response: string) => response // Returns content directly
       }
     ];
 
     let lastError: Error | null = null;
-    
+
     for (const proxy of proxies) {
       try {
         console.log(`Trying CORS proxy: ${proxy.name}`);
         const response = await fetch(proxy.url);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const text = await response.text();
         const content = proxy.extractContent(text);
         if (looksLikeHtml(content)) {
@@ -196,7 +196,7 @@ export default function Home() {
           }
           throw new Error('Received HTML instead of plain text');
         }
-        
+
         console.log(`Successfully fetched via ${proxy.name}`);
         return content;
       } catch (error) {
@@ -206,7 +206,7 @@ export default function Home() {
         continue;
       }
     }
-    
+
     if (lastError) {
       throw new Error(`All CORS proxies failed: ${lastError.message}`);
     }
@@ -217,10 +217,10 @@ export default function Home() {
     setIsLoadingList(true);
     // Use CORS proxy for URLs that don't support CORS
     const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
-    
+
     try {
       let text: string;
-      
+
       if (needsProxy) {
         text = await fetchWithCorsProxy(listUrl);
       } else {
@@ -235,15 +235,15 @@ export default function Home() {
           // Match Twitter/X URLs
           const twitterMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
           if (twitterMatch) return twitterMatch[1];
-          
+
           // Match YouTube URLs
           const youtubeMatch = line.match(/^(https:\/\/(?:www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s]*)/);
           if (youtubeMatch) return youtubeMatch[1];
-          
+
           return null;
         })
         .filter((url): url is string => url !== null);
-      
+
       if (rawUrls.length > 0) {
         const { deduplicated, duplicatesRemoved } = deduplicateUrls(rawUrls);
         setUrlList(deduplicated);
@@ -262,7 +262,7 @@ export default function Home() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      
+
       // Provide more specific error messages
       if (needsProxy && errorMessage.toLowerCase().includes('cloudflare')) {
         setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
@@ -275,7 +275,7 @@ export default function Home() {
       } else {
         setError(`Failed to load URL list: ${errorMessage}. Make sure the URL is accessible and contains valid Twitter/X URLs.`);
       }
-      
+
       console.error('Failed to fetch URL list:', err);
     } finally {
       setIsLoadingList(false);
@@ -286,7 +286,7 @@ export default function Home() {
     if (externalUrl.trim()) {
       const url = externalUrl.trim();
       fetchUrlList(url);
-      
+
       // Update browser URL without encoding
       const baseUrl = window.location.origin + window.location.pathname;
       const newUrl = `${baseUrl}?list=${url}`;
@@ -301,7 +301,7 @@ export default function Home() {
     setExternalUrl('');
     setError(null);
     setShowDemoOptions(false);
-    
+
     // Clear URL parameter
     const baseUrl = window.location.origin + window.location.pathname;
     window.history.pushState({}, '', baseUrl);
@@ -311,7 +311,7 @@ export default function Home() {
     setExternalUrl(demoUrl);
     fetchUrlList(demoUrl);
     setShowDemoOptions(false);
-    
+
     // Update browser URL
     const baseUrl = window.location.origin + window.location.pathname;
     const newUrl = `${baseUrl}?list=${demoUrl}`;
@@ -330,7 +330,7 @@ export default function Home() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const listUrl = params.get('list');
-    
+
     if (listUrl) {
       setExternalUrl(listUrl);
       fetchUrlList(listUrl);
@@ -346,16 +346,16 @@ export default function Home() {
     const startIndex = batchIndex * BATCH_SIZE;
     const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
     const batchUrls = urlList.slice(startIndex, endIndex);
-    
+
     if (batchUrls.length === 0) {
       setHasMoreContent(false);
       return;
     }
-    
+
     try {
       const promises = batchUrls.map(async (url): Promise<ContentItem> => {
         const contentType = getContentType(url);
-        
+
         if (contentType === 'youtube') {
           return {
             type: 'youtube',
@@ -366,7 +366,7 @@ export default function Home() {
           const apiUrl = normalizeXUrl(url);
           const response = await fetch(apiUrl);
           const data: ApiResponse = await response.json();
-          
+
           if (data.code === 200) {
             return {
               type: 'twitter',
@@ -377,7 +377,7 @@ export default function Home() {
           }
           throw new Error(`Failed to fetch tweet: ${data.message}`);
         }
-        
+
         throw new Error(`Unsupported content type for URL: ${url}`);
       });
 
@@ -387,7 +387,7 @@ export default function Home() {
         .map(result => result.value);
 
       const failedCount = results.filter(result => result.status === 'rejected').length;
-      
+
       if (isInitial) {
         setContentItems(successfulContent);
         setLoadStats(prev => ({
@@ -409,16 +409,16 @@ export default function Home() {
           failed: prev.failed + failedCount
         }));
       }
-      
+
       setHasMoreContent(endIndex < urlList.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch content');
     }
   }, [urlList]);
-  
+
   const loadMoreContent = useCallback(async () => {
     if (isLoadingMore || !hasMoreContent) return;
-    
+
     setIsLoadingMore(true);
     const nextBatch = currentBatch + 1;
     await fetchBatch(nextBatch);
@@ -429,36 +429,36 @@ export default function Home() {
   useEffect(() => {
     const initializeContent = async () => {
       setLoading(true);
-      
+
       if (urlList.length === 0) {
         setLoading(false);
         return;
       }
-      
+
       setContentItems([]);
       setCurrentBatch(0);
       setHasMoreContent(true);
-      
+
       await fetchBatch(0, true);
       setLoading(false);
     };
 
     initializeContent();
   }, [urlList, fetchBatch]);
-  
+
   useEffect(() => {
     const handleScroll = () => {
       if (loading || isLoadingMore || !hasMoreContent) return;
-      
+
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
-      
+
       if (scrollTop + windowHeight >= documentHeight - 1000) {
         loadMoreContent();
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [loading, isLoadingMore, hasMoreContent, loadMoreContent]);
@@ -469,9 +469,9 @@ export default function Home() {
         <div className="text-center">
           <div className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-4 shadow-lg">
             <div className="flex gap-1">
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-              <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
             <span className="text-lg font-medium text-gray-700">Finding awesome posts...</span>
           </div>
@@ -485,15 +485,15 @@ export default function Home() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
         <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <h1 
-              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2" 
+            <h1
+              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2"
               onClick={() => window.location.reload()}
               title="Click to refresh and get new posts"
             >
-              <Image 
-                src="/icon.svg" 
-                alt="X Fun Logo" 
-                width={32} 
+              <Image
+                src="/icon.svg"
+                alt="X Fun Logo"
+                width={32}
                 height={32}
                 className="w-8 h-8"
               />
@@ -502,7 +502,7 @@ export default function Home() {
             <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
           </div>
         </header>
-        
+
         <div className="min-h-screen flex items-center justify-center px-4">
           <div className="text-center max-w-md">
             <div className="text-6xl mb-4">😅</div>
@@ -525,15 +525,15 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="space-y-3">
             <div className="text-center">
-              <h1 
-                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center justify-center gap-2" 
+              <h1
+                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center justify-center gap-2"
                 onClick={() => window.location.reload()}
                 title="Click to refresh and get new posts"
               >
-                <Image 
-                  src="/icon.svg" 
-                  alt="X Fun Logo" 
-                  width={32} 
+                <Image
+                  src="/icon.svg"
+                  alt="X Fun Logo"
+                  width={32}
                   height={32}
                   className="w-8 h-8"
                 />
@@ -592,7 +592,7 @@ export default function Home() {
               </button>
             </div>
           </div>
-          
+
           {showUrlInput && (
             <div className="mt-4 space-y-3">
               <div className="flex flex-col sm:flex-row gap-2">
@@ -624,9 +624,9 @@ export default function Home() {
                 </p>
                 <p className="mt-2 text-white/80 text-xs">
                   <strong>💡 Troubleshooting:</strong> If your list fails to load, test CORS support at{' '}
-                  <a 
-                    href="https://cors-test.codehappy.dev/" 
-                    target="_blank" 
+                  <a
+                    href="https://cors-test.codehappy.dev/"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-white underline hover:text-blue-200"
                   >
@@ -635,9 +635,9 @@ export default function Home() {
                 </p>
                 <p className="mt-2 text-white/80 text-xs">
                   <strong>🔗 Source Code:</strong>{' '}
-                  <a 
-                    href="https://github.com/p0n1/xfun" 
-                    target="_blank" 
+                  <a
+                    href="https://github.com/p0n1/xfun"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-white underline hover:text-blue-200"
                   >
@@ -649,7 +649,7 @@ export default function Home() {
           )}
         </div>
       </header>
-      
+
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {!loading && loadStats.total > 0 && (
           <div className="mb-6">
@@ -687,9 +687,9 @@ export default function Home() {
                 </div>
                 <div className="text-gray-400">
                   <span className="text-gray-500">🔗 Source code:</span>{' '}
-                  <a 
-                    href="https://github.com/p0n1/xfun" 
-                    target="_blank" 
+                  <a
+                    href="https://github.com/p0n1/xfun"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-700 underline"
                   >
@@ -700,7 +700,7 @@ export default function Home() {
             </details>
           </div>
         )}
-        
+
         <div className="space-y-6">
           {contentItems.map((item) => {
             if (item.type === 'youtube') {
@@ -711,20 +711,20 @@ export default function Home() {
             return null;
           })}
         </div>
-        
+
         {isLoadingMore && (
           <div className="flex items-center justify-center py-8">
             <div className="inline-flex items-center gap-3 bg-white rounded-full px-5 py-3 shadow-md border border-gray-100">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0ms'}}></div>
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '200ms'}}></div>
-                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '400ms'}}></div>
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></div>
+                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></div>
               </div>
               <span className="text-base font-medium text-gray-600">Getting more fun posts...</span>
             </div>
           </div>
         )}
-        
+
         {!loading && !isLoadingMore && hasMoreContent && contentItems.length > 0 && (
           <div className="flex items-center justify-center py-8">
             <button
@@ -735,7 +735,7 @@ export default function Home() {
             </button>
           </div>
         )}
-        
+
         {!loading && !hasMoreContent && contentItems.length > 0 && (
           <div className="flex items-center justify-center py-8">
             <div className="text-gray-500">🎉 All content loaded!</div>
