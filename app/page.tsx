@@ -98,6 +98,28 @@ interface ApiResponse {
   tweet: Tweet;
 }
 
+function looksLikeHtml(content: string): boolean {
+  const trimmed = content.trim().toLowerCase();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith('<!doctype html') ||
+    trimmed.startsWith('<html') ||
+    (trimmed.includes('<head') && trimmed.includes('<body')) ||
+    (trimmed.includes('<script') && trimmed.includes('</html>'))
+  );
+}
+
+function looksLikeCloudflareChallenge(content: string): boolean {
+  const lower = content.toLowerCase();
+  return (
+    lower.includes('cf_chl') ||
+    lower.includes('cloudflare') ||
+    lower.includes('just a moment') ||
+    lower.includes('challenge-error-text') ||
+    lower.includes('checking your browser')
+  );
+}
+
 
 function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRemoved: number } {
   const seen = new Set<string>();
@@ -168,6 +190,12 @@ export default function Home() {
         
         const text = await response.text();
         const content = proxy.extractContent(text);
+        if (looksLikeHtml(content)) {
+          if (looksLikeCloudflareChallenge(content)) {
+            throw new Error('Received Cloudflare challenge HTML');
+          }
+          throw new Error('Received HTML instead of plain text');
+        }
         
         console.log(`Successfully fetched via ${proxy.name}`);
         return content;
@@ -179,7 +207,10 @@ export default function Home() {
       }
     }
     
-    throw lastError || new Error('All CORS proxies failed');
+    if (lastError) {
+      throw new Error(`All CORS proxies failed: ${lastError.message}`);
+    }
+    throw new Error('All CORS proxies failed');
   };
 
   const fetchUrlList = useCallback(async (listUrl: string) => {
@@ -219,13 +250,25 @@ export default function Home() {
         setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
         setError(null);
       } else {
-        setError('No valid Twitter/X or YouTube URLs found in the list');
+        if (looksLikeHtml(text)) {
+          if (looksLikeCloudflareChallenge(text)) {
+            setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
+          } else {
+            setError('The URL list returned an HTML page instead of plain text. Make sure you are using a raw text URL.');
+          }
+        } else {
+          setError('No valid Twitter/X or YouTube URLs found in the list');
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       
       // Provide more specific error messages
-      if (needsProxy && errorMessage.includes('All CORS proxies failed')) {
+      if (needsProxy && errorMessage.toLowerCase().includes('cloudflare')) {
+        setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
+      } else if (needsProxy && errorMessage.toLowerCase().includes('html')) {
+        setError('A CORS proxy returned HTML instead of plain text. Make sure you are using a raw text URL, or try a GitHub raw URL or Gist instead.');
+      } else if (needsProxy && errorMessage.includes('All CORS proxies failed')) {
         setError('All CORS proxies failed to load the URL. The services may be temporarily down. Please try again later or use a different URL source (GitHub, Gist).');
       } else if (needsProxy) {
         setError(`CORS proxy error: ${errorMessage}. Try using GitHub raw URLs or Gists instead.`);
