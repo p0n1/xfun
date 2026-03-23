@@ -30,6 +30,46 @@ function pauseAllOtherVideos(currentVideo: HTMLVideoElement) {
   });
 }
 
+function getPhotoGridClass(photoCount: number) {
+  if (photoCount === 1) {
+    return 'grid-cols-1';
+  }
+
+  if (photoCount === 4) {
+    return 'grid-cols-2';
+  }
+
+  if (photoCount === 2) {
+    return 'grid-cols-2';
+  }
+
+  return 'grid-cols-2 md:grid-cols-3';
+}
+
+function getPhotoFrameClass(photoCount: number) {
+  if (photoCount === 1) {
+    return 'aspect-[4/5] sm:aspect-[16/10]';
+  }
+
+  if (photoCount === 4) {
+    return 'aspect-square lg:aspect-[6/5]';
+  }
+
+  return 'aspect-[4/5] sm:aspect-[4/3]';
+}
+
+function getPhotoSizes(photoCount: number) {
+  if (photoCount === 1) {
+    return '(min-width: 1024px) 52rem, 100vw';
+  }
+
+  if (photoCount === 4 || photoCount === 2) {
+    return '(min-width: 1024px) 26rem, 50vw';
+  }
+
+  return '(min-width: 768px) 32vw, 50vw';
+}
+
 function MediaGallery({
   photos,
   videos,
@@ -104,30 +144,22 @@ function MediaGallery({
       ) : null}
 
       {photos.length > 0 ? (
-        <div
-          className={`grid gap-3 ${
-            photos.length === 1
-              ? 'grid-cols-1'
-              : photos.length === 2
-                ? 'grid-cols-2'
-                : 'grid-cols-2 md:grid-cols-3'
-          }`}
-        >
+        <div className={`grid gap-3 ${getPhotoGridClass(photos.length)}`}>
           {photos.map((photo) => (
             <button
               key={photo.url}
               type="button"
               onClick={() => openGallery(photo.url)}
-              className="group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left"
+              className={`group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left ${getPhotoFrameClass(
+                photos.length,
+              )}`}
             >
               <Image
                 src={photo.url}
                 alt="Post image"
-                width={photo.width}
-                height={photo.height}
-                className={`w-full object-cover transition duration-500 group-hover:scale-[1.02] ${
-                  photos.length === 1 ? 'max-h-[38rem]' : 'h-56 md:h-72'
-                }`}
+                fill
+                sizes={getPhotoSizes(photos.length)}
+                className="object-cover transition duration-500 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/15 to-transparent opacity-0 transition group-hover:opacity-100" />
             </button>
