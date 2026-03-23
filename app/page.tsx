@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import XPostCard from './components/XPostCard';
 import YouTubeCard from './components/YouTubeCard';
 import ScrollToTop from './components/ScrollToTop';
@@ -98,6 +98,12 @@ interface ApiResponse {
   tweet: Tweet;
 }
 
+interface BatchFetchResult {
+  applied: boolean;
+  addedCount: number;
+  hasMoreContent: boolean;
+}
+
 function looksLikeHtml(content: string): boolean {
   const trimmed = content.trim().toLowerCase();
   if (!trimmed) return false;
@@ -152,6 +158,28 @@ export default function Home() {
   const [currentBatch, setCurrentBatch] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreContent, setHasMoreContent] = useState(true);
+  const urlListRequestIdRef = useRef(0);
+  const contentRequestIdRef = useRef(0);
+  const contentItemsRef = useRef<ContentItem[]>([]);
+
+  const commitUrlList = useCallback((urls: string[], duplicatesRemoved: number) => {
+    contentRequestIdRef.current += 1;
+    contentItemsRef.current = [];
+    setError(null);
+    setIsLoadingList(false);
+    setLoading(true);
+    setContentItems([]);
+    setCurrentBatch(0);
+    setIsLoadingMore(false);
+    setHasMoreContent(urls.length > 0);
+    setUrlList(urls);
+    setLoadStats({
+      successful: 0,
+      failed: 0,
+      total: urls.length,
+      duplicatesRemoved
+    });
+  }, []);
 
   // CORS proxy fallback system - tries proxies in order of reliability
   // https://gist.github.com/reynaldichernando/eab9c4e31e30677f176dc9eb732963ef CORS proxies list
@@ -214,6 +242,7 @@ export default function Home() {
   };
 
   const fetchUrlList = useCallback(async (listUrl: string) => {
+    const requestId = ++urlListRequestIdRef.current;
     setIsLoadingList(true);
     // Use CORS proxy for URLs that don't support CORS
     const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
@@ -244,11 +273,13 @@ export default function Home() {
         })
         .filter((url): url is string => url !== null);
 
+      if (requestId !== urlListRequestIdRef.current) {
+        return;
+      }
+
       if (rawUrls.length > 0) {
         const { deduplicated, duplicatesRemoved } = deduplicateUrls(rawUrls);
-        setUrlList(deduplicated);
-        setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
-        setError(null);
+        commitUrlList(deduplicated, duplicatesRemoved);
       } else {
         if (looksLikeHtml(text)) {
           if (looksLikeCloudflareChallenge(text)) {
@@ -261,6 +292,10 @@ export default function Home() {
         }
       }
     } catch (err) {
+      if (requestId !== urlListRequestIdRef.current) {
+        return;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
 
       // Provide more specific error messages
@@ -278,9 +313,11 @@ export default function Home() {
 
       console.error('Failed to fetch URL list:', err);
     } finally {
-      setIsLoadingList(false);
+      if (requestId === urlListRequestIdRef.current) {
+        setIsLoadingList(false);
+      }
     }
-  }, []);
+  }, [commitUrlList]);
 
   const handleLoadExternalList = () => {
     if (externalUrl.trim()) {
@@ -295,11 +332,10 @@ export default function Home() {
   };
 
   const handleLoadDemo = () => {
+    urlListRequestIdRef.current += 1;
     const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-    setUrlList(deduplicated);
-    setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
+    commitUrlList(deduplicated, duplicatesRemoved);
     setExternalUrl('');
-    setError(null);
     setShowDemoOptions(false);
 
     // Clear URL parameter
@@ -336,20 +372,27 @@ export default function Home() {
       fetchUrlList(listUrl);
     } else {
       // Load default demo if no URL parameter
+      urlListRequestIdRef.current += 1;
       const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-      setUrlList(deduplicated);
-      setLoadStats(prev => ({ ...prev, duplicatesRemoved }));
+      commitUrlList(deduplicated, duplicatesRemoved);
     }
-  }, [fetchUrlList]);
+  }, [commitUrlList, fetchUrlList]);
 
-  const fetchBatch = useCallback(async (batchIndex: number, isInitial = false) => {
+  const fetchBatch = useCallback(async (batchIndex: number, requestId: number): Promise<BatchFetchResult> => {
     const startIndex = batchIndex * BATCH_SIZE;
     const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
     const batchUrls = urlList.slice(startIndex, endIndex);
 
     if (batchUrls.length === 0) {
-      setHasMoreContent(false);
-      return;
+      const isCurrentRequest = requestId === contentRequestIdRef.current;
+      if (isCurrentRequest) {
+        setHasMoreContent(false);
+      }
+      return {
+        applied: isCurrentRequest,
+        addedCount: 0,
+        hasMoreContent: false
+      };
     }
 
     try {
@@ -382,65 +425,119 @@ export default function Home() {
       });
 
       const results = await Promise.allSettled(promises);
+      if (requestId !== contentRequestIdRef.current) {
+        return {
+          applied: false,
+          addedCount: 0,
+          hasMoreContent: false
+        };
+      }
+
       const successfulContent = results
         .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
         .map(result => result.value);
 
       const failedCount = results.filter(result => result.status === 'rejected').length;
+      const existingIds = new Set(contentItemsRef.current.map(item => item.id));
+      const newContent = successfulContent.filter(item => !existingIds.has(item.id));
+      const addedCount = newContent.length;
 
-      if (isInitial) {
-        setContentItems(successfulContent);
-        setLoadStats(prev => ({
-          ...prev,
-          successful: successfulContent.length,
-          failed: failedCount,
-          total: urlList.length
-        }));
-      } else {
-        let newContent: ContentItem[] = [];
-        setContentItems(prev => {
-          const existingIds = new Set(prev.map(item => item.id));
-          newContent = successfulContent.filter(item => !existingIds.has(item.id));
-          return [...prev, ...newContent];
-        });
-        setLoadStats(prev => ({
-          ...prev,
-          successful: prev.successful + newContent.length,
-          failed: prev.failed + failedCount
-        }));
+      if (addedCount > 0) {
+        const nextContentItems = [...contentItemsRef.current, ...newContent];
+        contentItemsRef.current = nextContentItems;
+        setContentItems(nextContentItems);
       }
 
-      setHasMoreContent(endIndex < urlList.length);
+      setLoadStats(prev => ({
+        ...prev,
+        successful: prev.successful + addedCount,
+        failed: prev.failed + failedCount
+      }));
+
+      const hasMoreContent = endIndex < urlList.length;
+      setHasMoreContent(hasMoreContent);
+      return {
+        applied: true,
+        addedCount,
+        hasMoreContent
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch content');
+      if (requestId !== contentRequestIdRef.current) {
+        return {
+          applied: false,
+          addedCount: 0,
+          hasMoreContent: false
+        };
+      }
+
+      throw err;
     }
   }, [urlList]);
 
   const loadMoreContent = useCallback(async () => {
     if (isLoadingMore || !hasMoreContent) return;
 
+    const requestId = contentRequestIdRef.current;
     setIsLoadingMore(true);
     const nextBatch = currentBatch + 1;
-    await fetchBatch(nextBatch);
-    setCurrentBatch(nextBatch);
-    setIsLoadingMore(false);
+    try {
+      const result = await fetchBatch(nextBatch, requestId);
+      if (!result.applied || requestId !== contentRequestIdRef.current) {
+        return;
+      }
+      setCurrentBatch(nextBatch);
+    } catch (err) {
+      if (requestId === contentRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch content');
+      }
+    } finally {
+      if (requestId === contentRequestIdRef.current) {
+        setIsLoadingMore(false);
+      }
+    }
   }, [isLoadingMore, hasMoreContent, currentBatch, fetchBatch]);
 
   useEffect(() => {
-    const initializeContent = async () => {
-      setLoading(true);
+    const requestId = contentRequestIdRef.current;
 
+    const initializeContent = async () => {
       if (urlList.length === 0) {
-        setLoading(false);
+        if (requestId === contentRequestIdRef.current) {
+          setLoading(false);
+        }
         return;
       }
 
-      setContentItems([]);
-      setCurrentBatch(0);
-      setHasMoreContent(true);
+      let batchIndex = 0;
 
-      await fetchBatch(0, true);
-      setLoading(false);
+      try {
+        while (true) {
+          const result = await fetchBatch(batchIndex, requestId);
+          if (!result.applied || requestId !== contentRequestIdRef.current) {
+            return;
+          }
+
+          if (result.addedCount > 0) {
+            setCurrentBatch(batchIndex);
+            setLoading(false);
+            return;
+          }
+
+          if (!result.hasMoreContent) {
+            setCurrentBatch(batchIndex);
+            setLoading(false);
+            setError('Unable to load any posts from this list. Try another list or return to the demo.');
+            return;
+          }
+
+          batchIndex += 1;
+        }
+      } catch (err) {
+        if (requestId === contentRequestIdRef.current) {
+          setLoading(false);
+          setError(err instanceof Error ? err.message : 'Failed to fetch content');
+        }
+      }
     };
 
     initializeContent();
