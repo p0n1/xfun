@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 
 export default function DynamicManifest() {
   useEffect(() => {
+    let currentManifestUrl: string | null = null;
+
     const updateManifest = () => {
       const params = new URLSearchParams(window.location.search);
       const listParam = params.get('list');
@@ -36,6 +38,10 @@ export default function DynamicManifest() {
       // Create blob URL for the manifest
       const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
       const manifestUrl = URL.createObjectURL(manifestBlob);
+      if (currentManifestUrl) {
+        URL.revokeObjectURL(currentManifestUrl);
+      }
+      currentManifestUrl = manifestUrl;
 
       // Remove existing manifest link
       const existingManifest = document.querySelector('link[rel="manifest"]');
@@ -62,6 +68,9 @@ export default function DynamicManifest() {
     
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      if (currentManifestUrl) {
+        URL.revokeObjectURL(currentManifestUrl);
+      }
     };
   }, []);
 

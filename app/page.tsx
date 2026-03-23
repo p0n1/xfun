@@ -1,844 +1,265 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { type FormEvent, useState } from 'react';
+import Image from 'next/image';
+import Reveal from './components/Reveal';
+import ScrollToTop from './components/ScrollToTop';
 import XPostCard from './components/XPostCard';
 import YouTubeCard from './components/YouTubeCard';
-import ScrollToTop from './components/ScrollToTop';
-import Image from 'next/image';
-import { getContentType, normalizeXUrl } from './utils/urlDetection';
-
-const DEMO_URLS = [
-  'https://www.youtube.com/watch?v=VxkMSkDF8vY',
-  'https://x.com/SpaceX/status/1949680387330027593',
-  'https://x.com/SpaceX/status/1949993416604951017',
-  'https://www.youtube.com/watch?v=hI9HQfCAw64',
-  'https://x.com/AMAZlNGNATURE/status/1932563688667373813',
-  'https://www.youtube.com/watch?v=AZ7AcvbebKo',
-  'https://x.com/NoContextHumans/status/1949803858063970648',
-  'https://x.com/niccruzpatane/status/1946967976005042231',
-  'https://x.com/SpaceX/status/1946437942265987384',
-  'https://youtu.be/2R8V68viXqk',
-  'https://x.com/johnkrausphotos/status/1947054042787762669',
-  'https://x.com/SpaceBasedFox/status/1946403321646116865',
-  'https://x.com/AMAZlNGNATURE/status/1941281137915040187',
-  'https://www.youtube.com/watch?v=6yb6cSHqEGs',
-  'https://x.com/satofishi/status/1908020230561075521',
-  'https://x.com/Rainmaker1973/status/1950054930384830578',
-  'https://x.com/Rainmaker1973/status/1945522890889212414',
-  'https://x.com/yourcloudnin3/status/1944214180472733905',
-  'https://x.com/not_2b_or_2b/status/1949666334616232152',
-  'https://twitter.com/joely7758521/status/1947472826489016745',
-  'https://x.com/interesting_aIl/status/1945914505633902667',
-  'https://x.com/DashHuang/status/1945939956444410008',
-  'https://x.com/earth_tracker/status/1944988485485781326',
-  'https://x.com/Rainmaker1973/status/1943173340472185135',
-  'https://x.com/catsareblessing/status/1941930158392553923',
-  'https://x.com/iam_smx/status/1940714232821277108',
-  'https://x.com/Ivar_A2428/status/1939698895598276770',
-  'https://twitter.com/jack/status/20',
-  'https://twitter.com/elonmusk/status/1585841080431321088',
-  'https://x.com/konstructivizm/status/1939430423190470904',
-  'https://x.com/HowThingsWork_/status/1938658586839990720',
-  'https://x.com/Rainmaker1973/status/1938845424628179186',
-  'https://x.com/historigins/status/1938630539696619880',
-  'https://x.com/Crazymoments01/status/1938506613117358262',
-  'https://x.com/gunsnrosesgirl3/status/1938283624794636738',
-  'https://x.com/TodayiLearrned/status/1937704284713365861',
-  'https://x.com/AMAZlNGNATURE/status/1937495493476487329',
-  'https://x.com/PicturesFoIder/status/1936868452242760065',
-  'https://x.com/UNIVERSE_FEEDS/status/1936873263038074891',
-  'https://x.com/Rainmaker1973/status/1936647837615296894',
-];
-
-const BATCH_SIZE = 3;
-
-interface Tweet {
-  url: string;
-  id: string;
-  text: string;
-  author: {
-    name: string;
-    screen_name: string;
-    avatar_url: string;
-  };
-  created_at: string;
-  media?: {
-    photos?: Array<{
-      type: string;
-      url: string;
-      width: number;
-      height: number;
-    }>;
-    videos?: Array<{
-      url: string;
-      thumbnail_url: string;
-      duration: number;
-      width: number;
-      height: number;
-      variants: Array<{
-        content_type: string;
-        url: string;
-        bitrate?: number;
-      }>;
-    }>;
-  };
-  quote?: Tweet;
-}
-
-interface ContentItem {
-  type: 'twitter' | 'youtube';
-  url: string;
-  data?: Tweet;
-  id: string;
-}
-
-interface ApiResponse {
-  code: number;
-  message: string;
-  tweet: Tweet;
-}
-
-interface BatchFetchResult {
-  applied: boolean;
-  addedCount: number;
-  hasMoreContent: boolean;
-}
-
-function looksLikeHtml(content: string): boolean {
-  const trimmed = content.trim().toLowerCase();
-  if (!trimmed) return false;
-  return (
-    trimmed.startsWith('<!doctype html') ||
-    trimmed.startsWith('<html') ||
-    (trimmed.includes('<head') && trimmed.includes('<body')) ||
-    (trimmed.includes('<script') && trimmed.includes('</html>'))
-  );
-}
-
-function looksLikeCloudflareChallenge(content: string): boolean {
-  const lower = content.toLowerCase();
-  return (
-    lower.includes('cf_chl') ||
-    lower.includes('cloudflare') ||
-    lower.includes('just a moment') ||
-    lower.includes('challenge-error-text') ||
-    lower.includes('checking your browser')
-  );
-}
-
-
-function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRemoved: number } {
-  const seen = new Set<string>();
-  const deduplicated: string[] = [];
-  let duplicatesRemoved = 0;
-
-  for (const url of urls) {
-    const normalizedForComparison = url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://x.com');
-    if (!seen.has(normalizedForComparison)) {
-      seen.add(normalizedForComparison);
-      deduplicated.push(url);
-    } else {
-      duplicatesRemoved++;
-    }
-  }
-
-  return { deduplicated, duplicatesRemoved };
-}
+import { useFeedLoader } from './hooks/useFeedLoader';
+import { useListSource } from './hooks/useListSource';
+import { usePwaState } from './hooks/usePwaState';
 
 export default function Home() {
-  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [urlList, setUrlList] = useState<string[]>([]);
-  const [externalUrl, setExternalUrl] = useState<string>('');
-  const [isLoadingList, setIsLoadingList] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [showDemoOptions, setShowDemoOptions] = useState(false);
-  const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0, duplicatesRemoved: 0 });
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreContent, setHasMoreContent] = useState(true);
-  const urlListRequestIdRef = useRef(0);
-  const contentRequestIdRef = useRef(0);
-  const contentItemsRef = useRef<ContentItem[]>([]);
+  const {
+    activeSource,
+    demoLists,
+    duplicatesRemoved,
+    error: listError,
+    inputUrl,
+    isLoading: isLoadingList,
+    setInputUrl,
+    urls,
+    loadDemo,
+    loadDemoListUrl,
+    loadRemoteList,
+  } = useListSource();
+  const {
+    error: feedError,
+    hasMoreContent,
+    isInitialLoading,
+    isLoadingMore,
+    items,
+    loadMore,
+    stats,
+  } = useFeedLoader(urls);
+  const { canInstall, installApp, isOnline } = usePwaState();
+  const [showCustomList, setShowCustomList] = useState(false);
+  const [installMessage, setInstallMessage] = useState('');
 
-  const commitUrlList = useCallback((urls: string[], duplicatesRemoved: number) => {
-    contentRequestIdRef.current += 1;
-    contentItemsRef.current = [];
-    setError(null);
-    setIsLoadingList(false);
-    setLoading(true);
-    setContentItems([]);
-    setCurrentBatch(0);
-    setIsLoadingMore(false);
-    setHasMoreContent(urls.length > 0);
-    setUrlList(urls);
-    setLoadStats({
-      successful: 0,
-      failed: 0,
-      total: urls.length,
-      duplicatesRemoved
-    });
-  }, []);
+  const processedCount = stats.successful + stats.failed;
+  const progressPercent =
+    stats.total > 0 ? Math.round((processedCount / stats.total) * 100) : 0;
 
-  // CORS proxy fallback system - tries proxies in order of reliability
-  // https://gist.github.com/reynaldichernando/eab9c4e31e30677f176dc9eb732963ef CORS proxies list
-  const fetchWithCorsProxy = async (url: string): Promise<string> => {
-    const proxies = [
-      {
-        name: 'allorigins',
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => {
-          const data = JSON.parse(response);
-          return data.contents;
-        }
-      },
-      {
-        name: 'corsproxy.io',
-        url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        extractContent: (response: string) => response // Returns content directly
-      },
-      {
-        name: 'codetabs',
-        url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => response // Returns content directly
-      }
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const proxy of proxies) {
-      try {
-        console.log(`Trying CORS proxy: ${proxy.name}`);
-        const response = await fetch(proxy.url);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const text = await response.text();
-        const content = proxy.extractContent(text);
-        if (looksLikeHtml(content)) {
-          if (looksLikeCloudflareChallenge(content)) {
-            throw new Error('Received Cloudflare challenge HTML');
-          }
-          throw new Error('Received HTML instead of plain text');
-        }
-
-        console.log(`Successfully fetched via ${proxy.name}`);
-        return content;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        console.warn(`CORS proxy ${proxy.name} failed: ${errorMsg}`);
-        lastError = error instanceof Error ? error : new Error(errorMsg);
-        continue;
-      }
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!inputUrl.trim()) {
+      return;
     }
 
-    if (lastError) {
-      throw new Error(`All CORS proxies failed: ${lastError.message}`);
-    }
-    throw new Error('All CORS proxies failed');
+    await loadRemoteList(inputUrl);
   };
 
-  const fetchUrlList = useCallback(async (listUrl: string) => {
-    const requestId = ++urlListRequestIdRef.current;
-    setIsLoadingList(true);
-    // Use CORS proxy for URLs that don't support CORS
-    const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
-
-    try {
-      let text: string;
-
-      if (needsProxy) {
-        text = await fetchWithCorsProxy(listUrl);
-      } else {
-        const response = await fetch(listUrl);
-        text = await response.text();
-      }
-      const rawUrls = text
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
-        .map(line => {
-          // Match Twitter/X URLs
-          const twitterMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
-          if (twitterMatch) return twitterMatch[1];
-
-          // Match YouTube URLs
-          const youtubeMatch = line.match(/^(https:\/\/(?:www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s]*)/);
-          if (youtubeMatch) return youtubeMatch[1];
-
-          return null;
-        })
-        .filter((url): url is string => url !== null);
-
-      if (requestId !== urlListRequestIdRef.current) {
-        return;
-      }
-
-      if (rawUrls.length > 0) {
-        const { deduplicated, duplicatesRemoved } = deduplicateUrls(rawUrls);
-        commitUrlList(deduplicated, duplicatesRemoved);
-      } else {
-        if (looksLikeHtml(text)) {
-          if (looksLikeCloudflareChallenge(text)) {
-            setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
-          } else {
-            setError('The URL list returned an HTML page instead of plain text. Make sure you are using a raw text URL.');
-          }
-        } else {
-          setError('No valid Twitter/X or YouTube URLs found in the list');
-        }
-      }
-    } catch (err) {
-      if (requestId !== urlListRequestIdRef.current) {
-        return;
-      }
-
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-
-      // Provide more specific error messages
-      if (needsProxy && errorMessage.toLowerCase().includes('cloudflare')) {
-        setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
-      } else if (needsProxy && errorMessage.toLowerCase().includes('html')) {
-        setError('A CORS proxy returned HTML instead of plain text. Make sure you are using a raw text URL, or try a GitHub raw URL or Gist instead.');
-      } else if (needsProxy && errorMessage.includes('All CORS proxies failed')) {
-        setError('All CORS proxies failed to load the URL. The services may be temporarily down. Please try again later or use a different URL source (GitHub, Gist).');
-      } else if (needsProxy) {
-        setError(`CORS proxy error: ${errorMessage}. Try using GitHub raw URLs or Gists instead.`);
-      } else {
-        setError(`Failed to load URL list: ${errorMessage}. Make sure the URL is accessible and contains valid Twitter/X URLs.`);
-      }
-
-      console.error('Failed to fetch URL list:', err);
-    } finally {
-      if (requestId === urlListRequestIdRef.current) {
-        setIsLoadingList(false);
-      }
-    }
-  }, [commitUrlList]);
-
-  const handleLoadExternalList = () => {
-    if (externalUrl.trim()) {
-      const url = externalUrl.trim();
-      fetchUrlList(url);
-
-      // Update browser URL without encoding
-      const baseUrl = window.location.origin + window.location.pathname;
-      const newUrl = `${baseUrl}?list=${url}`;
-      window.history.pushState({}, '', newUrl);
+  const handleInstall = async () => {
+    const installed = await installApp();
+    if (installed) {
+      setInstallMessage('App installed.');
+      window.setTimeout(() => setInstallMessage(''), 2400);
     }
   };
-
-  const handleLoadDemo = () => {
-    urlListRequestIdRef.current += 1;
-    const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-    commitUrlList(deduplicated, duplicatesRemoved);
-    setExternalUrl('');
-    setShowDemoOptions(false);
-
-    // Clear URL parameter
-    const baseUrl = window.location.origin + window.location.pathname;
-    window.history.pushState({}, '', baseUrl);
-  };
-
-  const handleLoadDemoUrl = (demoUrl: string) => {
-    setExternalUrl(demoUrl);
-    fetchUrlList(demoUrl);
-    setShowDemoOptions(false);
-
-    // Update browser URL
-    const baseUrl = window.location.origin + window.location.pathname;
-    const newUrl = `${baseUrl}?list=${demoUrl}`;
-    window.history.pushState({}, '', newUrl);
-  };
-
-  // Demo URLs for testing
-  const demoUrls = [
-    {
-      name: "SpaceX Posts",
-      url: "https://raw.githubusercontent.com/p0n1/xfun/refs/heads/main/demo-lists/spacex.txt",
-      description: "Demo list with SpaceX tweets"
-    }
-  ];
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const listUrl = params.get('list');
-
-    if (listUrl) {
-      setExternalUrl(listUrl);
-      fetchUrlList(listUrl);
-    } else {
-      // Load default demo if no URL parameter
-      urlListRequestIdRef.current += 1;
-      const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-      commitUrlList(deduplicated, duplicatesRemoved);
-    }
-  }, [commitUrlList, fetchUrlList]);
-
-  const fetchBatch = useCallback(async (batchIndex: number, requestId: number): Promise<BatchFetchResult> => {
-    const startIndex = batchIndex * BATCH_SIZE;
-    const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
-    const batchUrls = urlList.slice(startIndex, endIndex);
-
-    if (batchUrls.length === 0) {
-      const isCurrentRequest = requestId === contentRequestIdRef.current;
-      if (isCurrentRequest) {
-        setHasMoreContent(false);
-      }
-      return {
-        applied: isCurrentRequest,
-        addedCount: 0,
-        hasMoreContent: false
-      };
-    }
-
-    try {
-      const promises = batchUrls.map(async (url): Promise<ContentItem> => {
-        const contentType = getContentType(url);
-
-        if (contentType === 'youtube') {
-          return {
-            type: 'youtube',
-            url,
-            id: url
-          };
-        } else if (contentType === 'twitter') {
-          const apiUrl = normalizeXUrl(url);
-          const response = await fetch(apiUrl);
-          const data: ApiResponse = await response.json();
-
-          if (data.code === 200) {
-            return {
-              type: 'twitter',
-              url,
-              data: data.tweet,
-              id: data.tweet.id
-            };
-          }
-          throw new Error(`Failed to fetch tweet: ${data.message}`);
-        }
-
-        throw new Error(`Unsupported content type for URL: ${url}`);
-      });
-
-      const results = await Promise.allSettled(promises);
-      if (requestId !== contentRequestIdRef.current) {
-        return {
-          applied: false,
-          addedCount: 0,
-          hasMoreContent: false
-        };
-      }
-
-      const successfulContent = results
-        .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
-        .map(result => result.value);
-
-      const failedCount = results.filter(result => result.status === 'rejected').length;
-      const existingIds = new Set(contentItemsRef.current.map(item => item.id));
-      const newContent = successfulContent.filter(item => !existingIds.has(item.id));
-      const addedCount = newContent.length;
-
-      if (addedCount > 0) {
-        const nextContentItems = [...contentItemsRef.current, ...newContent];
-        contentItemsRef.current = nextContentItems;
-        setContentItems(nextContentItems);
-      }
-
-      setLoadStats(prev => ({
-        ...prev,
-        successful: prev.successful + addedCount,
-        failed: prev.failed + failedCount
-      }));
-
-      const hasMoreContent = endIndex < urlList.length;
-      setHasMoreContent(hasMoreContent);
-      return {
-        applied: true,
-        addedCount,
-        hasMoreContent
-      };
-    } catch (err) {
-      if (requestId !== contentRequestIdRef.current) {
-        return {
-          applied: false,
-          addedCount: 0,
-          hasMoreContent: false
-        };
-      }
-
-      throw err;
-    }
-  }, [urlList]);
-
-  const loadMoreContent = useCallback(async () => {
-    if (isLoadingMore || !hasMoreContent) return;
-
-    const requestId = contentRequestIdRef.current;
-    setIsLoadingMore(true);
-    const nextBatch = currentBatch + 1;
-    try {
-      const result = await fetchBatch(nextBatch, requestId);
-      if (!result.applied || requestId !== contentRequestIdRef.current) {
-        return;
-      }
-      setCurrentBatch(nextBatch);
-    } catch (err) {
-      if (requestId === contentRequestIdRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch content');
-      }
-    } finally {
-      if (requestId === contentRequestIdRef.current) {
-        setIsLoadingMore(false);
-      }
-    }
-  }, [isLoadingMore, hasMoreContent, currentBatch, fetchBatch]);
-
-  useEffect(() => {
-    const requestId = contentRequestIdRef.current;
-
-    const initializeContent = async () => {
-      if (urlList.length === 0) {
-        if (requestId === contentRequestIdRef.current) {
-          setLoading(false);
-        }
-        return;
-      }
-
-      let batchIndex = 0;
-
-      try {
-        while (true) {
-          const result = await fetchBatch(batchIndex, requestId);
-          if (!result.applied || requestId !== contentRequestIdRef.current) {
-            return;
-          }
-
-          if (result.addedCount > 0) {
-            setCurrentBatch(batchIndex);
-            setLoading(false);
-            return;
-          }
-
-          if (!result.hasMoreContent) {
-            setCurrentBatch(batchIndex);
-            setLoading(false);
-            setError('Unable to load any posts from this list. Try another list or return to the demo.');
-            return;
-          }
-
-          batchIndex += 1;
-        }
-      } catch (err) {
-        if (requestId === contentRequestIdRef.current) {
-          setLoading(false);
-          setError(err instanceof Error ? err.message : 'Failed to fetch content');
-        }
-      }
-    };
-
-    initializeContent();
-  }, [urlList, fetchBatch]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (loading || isLoadingMore || !hasMoreContent) return;
-
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-
-      if (scrollTop + windowHeight >= documentHeight - 1000) {
-        loadMoreContent();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, isLoadingMore, hasMoreContent, loadMoreContent]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-4 shadow-lg">
-            <div className="flex gap-1">
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-            <span className="text-lg font-medium text-gray-700">Finding awesome posts...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-        <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <h1
-              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2"
-              onClick={() => window.location.reload()}
-              title="Click to refresh and get new posts"
-            >
-              <Image
-                src="/icon.svg"
-                alt="X Fun Logo"
-                width={32}
-                height={32}
-                className="w-8 h-8"
-              />
-              X Fun
-            </h1>
-            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
-          </div>
-        </header>
-
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">😅</div>
-            <div className="text-xl text-red-500 mb-6">Error: {error}</div>
-            <button
-              onClick={handleLoadDemo}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium"
-            >
-              Return to Demo
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="space-y-3">
-            <div className="text-center">
-              <h1
-                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center justify-center gap-2"
-                onClick={() => window.location.reload()}
-                title="Click to refresh and get new posts"
-              >
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.45),_transparent_28%),linear-gradient(180deg,_#f8fbff_0%,_#fdf8f2_48%,_#ffffff_100%)]">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-[8%] top-16 h-40 w-40 rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="absolute right-[12%] top-32 h-48 w-48 rounded-full bg-amber-200/35 blur-3xl" />
+        <div className="absolute bottom-16 left-1/3 h-44 w-44 rounded-full bg-fuchsia-200/25 blur-3xl" />
+      </div>
+
+      <main className="relative">
+        <section className="px-4 pb-5 pt-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl rounded-[2.25rem] border border-white/70 bg-white/80 px-5 py-6 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:px-6 sm:py-7">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex items-center gap-3">
                 <Image
                   src="/icon.svg"
-                  alt="X Fun Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8"
+                  alt="X Fun"
+                  width={42}
+                  height={42}
+                  className="h-10 w-10 rounded-xl"
                 />
-                X Fun
-              </h1>
-              <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
-            </div>
-            <div className="flex justify-center gap-2">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30 transition-all hover:scale-105"
-                title="Refresh to get new posts"
-              >
-                🔄 Refresh
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowDemoOptions(!showDemoOptions)}
-                  className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
-                >
-                  {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
-                </button>
-                {showDemoOptions && (
-                  <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
-                    <div className="p-3 border-b">
-                      <button
-                        onClick={handleLoadDemo}
-                        className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
-                      >
-                        <div className="font-medium">Default Demo</div>
-                        <div className="text-xs text-gray-500">Built-in example posts</div>
-                      </button>
-                    </div>
-                    <div className="p-2">
-                      <div className="text-xs text-gray-500 px-3 py-1 font-medium">Test External URLs:</div>
-                      {demoUrls.map((demo, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleLoadDemoUrl(demo.url)}
-                          className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
-                        >
-                          <div className="font-medium text-sm">{demo.name}</div>
-                          <div className="text-xs text-gray-500">{demo.description}</div>
-                          <div className="text-xs text-blue-600 break-all mt-1">{demo.url}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+                  X Fun
+                </h1>
               </div>
+              <p className="mt-3 max-w-2xl text-base text-slate-500 sm:text-lg">
+                Fun and engaging content for curious minds
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                {showUrlInput ? 'Hide' : 'Custom List'}
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={loadDemo}
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                Built-in demo
+              </button>
+              {demoLists[0] ? (
+                <button
+                  type="button"
+                  onClick={() => void loadDemoListUrl(demoLists[0].url)}
+                  className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Try examples
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowCustomList((value) => !value)}
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                {showCustomList ? 'Hide custom list' : 'Custom list'}
               </button>
             </div>
-          </div>
 
-          {showUrlInput && (
-            <div className="mt-4 space-y-3">
-              <div className="flex flex-col sm:flex-row gap-2">
+            {showCustomList ? (
+              <form onSubmit={handleSubmit} className="mx-auto mt-5 max-w-3xl space-y-3">
                 <input
                   type="url"
-                  value={externalUrl}
-                  onChange={(e) => setExternalUrl(e.target.value)}
-                  placeholder="Enter URL to plain text list (e.g., GitHub raw URL)"
-                  className="flex-1 px-3 py-2 rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent text-gray-900 text-sm"
+                  value={inputUrl}
+                  onChange={(event) => setInputUrl(event.target.value)}
+                  placeholder="Public text-file URL"
                   disabled={isLoadingList}
+                  className="w-full rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
                 />
-                <button
-                  onClick={handleLoadExternalList}
-                  disabled={!externalUrl.trim() || isLoadingList}
-                  className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm whitespace-nowrap"
-                >
-                  {isLoadingList ? 'Loading...' : 'Load List'}
-                </button>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3 text-white text-sm">
-                <p className="font-medium mb-2">📝 Supported Services:</p>
-                <ul className="space-y-1 text-white/90">
-                  <li>• <strong>GitHub:</strong> Create a public repo → Upload .txt file → Use raw URL</li>
-                  <li>• <strong>GitHub Gist:</strong> Create public gist → Use raw URL</li>
-                  <li>• <strong>Pastebin:</strong> Any public paste URL (uses multiple CORS proxies with fallback)</li>
-                </ul>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>Format:</strong> One URL per line, comments allowed after URLs. Check examples above for working URLs.
-                </p>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>💡 Troubleshooting:</strong> If your list fails to load, test CORS support at{' '}
-                  <a
-                    href="https://cors-test.codehappy.dev/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white underline hover:text-blue-200"
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={!inputUrl.trim() || isLoadingList}
+                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
-                    cors-test.codehappy.dev
-                  </a>
-                </p>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>🔗 Source Code:</strong>{' '}
-                  <a
-                    href="https://github.com/p0n1/xfun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white underline hover:text-blue-200"
-                  >
-                    github.com/p0n1/xfun
-                  </a>
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+                    {isLoadingList ? 'Loading list...' : 'Load list'}
+                  </button>
+                  {canInstall ? (
+                    <button
+                      type="button"
+                      onClick={handleInstall}
+                      className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      Install app
+                    </button>
+                  ) : null}
+                </div>
+                {installMessage ? (
+                  <p className="text-center text-sm text-sky-700">{installMessage}</p>
+                ) : null}
+              </form>
+            ) : null}
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {!loading && loadStats.total > 0 && (
-          <div className="mb-6">
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 transition-colors select-none">
-                <span className="inline-flex items-center gap-1">
-                  <span className="text-[10px]">ℹ️</span>
-                  <span>Details</span>
-                  <span className="text-[10px] group-open:rotate-180 transition-transform">▼</span>
-                </span>
+            <details className="mx-auto mt-5 max-w-4xl text-center">
+              <summary className="cursor-pointer list-none text-sm text-slate-400 transition hover:text-slate-600">
+                Details
               </summary>
-              <div className="mt-2 text-xs text-gray-500 space-y-1 pl-3 border-l-2 border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                  <span>📋 {loadStats.total} URLs in current list</span>
-                  <span className="text-green-600">✓ {loadStats.successful} successfully loaded</span>
-                  {loadStats.failed > 0 && (
-                    <span className="text-red-500">✗ {loadStats.failed} failed to load</span>
-                  )}
-                  {loadStats.duplicatesRemoved > 0 && (
-                    <span className="text-orange-500">⚡ {loadStats.duplicatesRemoved} duplicates filtered</span>
-                  )}
+              <div className="mt-3 space-y-3 rounded-[1.5rem] border border-slate-100 bg-slate-50/80 px-4 py-4 text-left text-sm leading-6 text-slate-600">
+                <p>
+                  {activeSource.kind === 'remote' && activeSource.url
+                    ? activeSource.url
+                    : 'Built-in demo list'}
+                </p>
+                <div className="h-2 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
-                {externalUrl && (
-                  <div className="text-blue-600 break-all">
-                    <span className="text-gray-500">🔗 Source:</span> {externalUrl}
-                  </div>
-                )}
-                {!externalUrl && (
-                  <div className="text-gray-400">
-                    <span className="text-gray-500">🔗 Source:</span> Built-in demo list
-                  </div>
-                )}
-                <div className="text-gray-400">
-                  <span className="text-gray-500">⏱️ Load progress:</span> {Math.round((loadStats.successful + loadStats.failed) / loadStats.total * 100)}% complete
+                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                  <span>{stats.successful} loaded</span>
+                  <span>{stats.failed} failed</span>
+                  <span>{duplicatesRemoved} duplicates removed</span>
+                  <span>{progressPercent}% processed</span>
+                  {!isOnline ? <span>Offline cache mode</span> : null}
                 </div>
-                <div className="text-gray-400">
-                  <span className="text-gray-500">🔗 Source code:</span>{' '}
-                  <a
-                    href="https://github.com/p0n1/xfun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-700 underline"
-                  >
-                    github.com/p0n1/xfun
-                  </a>
-                </div>
+                <p>
+                  Use GitHub raw URLs, public gists, or public Pastebin links. One
+                  supported URL per line, with inline comments allowed after each URL.
+                </p>
               </div>
             </details>
           </div>
-        )}
 
-        <div className="space-y-6">
-          {contentItems.map((item) => {
-            if (item.type === 'youtube') {
-              return <YouTubeCard key={item.id} url={item.url} />;
-            } else if (item.type === 'twitter' && item.data) {
-              return <XPostCard key={item.id} tweet={item.data} />;
-            }
-            return null;
-          })}
-        </div>
-
-        {isLoadingMore && (
-          <div className="flex items-center justify-center py-8">
-            <div className="inline-flex items-center gap-3 bg-white rounded-full px-5 py-3 shadow-md border border-gray-100">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></div>
-                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></div>
+          {listError ? (
+            <Reveal className="mx-auto mt-4 max-w-6xl">
+              <div className="rounded-[2rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm leading-6 text-rose-700">
+                {listError}
               </div>
-              <span className="text-base font-medium text-gray-600">Getting more fun posts...</span>
+            </Reveal>
+          ) : null}
+
+          {feedError ? (
+            <Reveal className="mx-auto mt-4 max-w-6xl">
+              <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-800">
+                {feedError}
+              </div>
+            </Reveal>
+          ) : null}
+        </section>
+
+        <section className="px-4 pb-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            {isInitialLoading ? (
+              <div className="grid gap-5">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/70 p-6 shadow-[0_18px_70px_rgba(148,163,184,0.12)]"
+                  >
+                    <div className="h-5 w-28 animate-pulse rounded-full bg-slate-100" />
+                    <div className="mt-4 h-8 w-3/4 animate-pulse rounded-full bg-slate-100" />
+                    <div className="mt-3 h-40 animate-pulse rounded-[1.5rem] bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="grid gap-5">
+              {items.map((item) => (
+                <Reveal key={item.id}>
+                  {item.kind === 'x' ? (
+                    <XPostCard item={item} />
+                  ) : (
+                    <YouTubeCard item={item} />
+                  )}
+                </Reveal>
+              ))}
             </div>
-          </div>
-        )}
 
-        {!loading && !isLoadingMore && hasMoreContent && contentItems.length > 0 && (
-          <div className="flex items-center justify-center py-8">
-            <button
-              onClick={loadMoreContent}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
-            >
-              Load More Content
-            </button>
-          </div>
-        )}
+            {!isLoadingList && !isInitialLoading && items.length === 0 && !listError && !feedError ? (
+              <div className="rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 text-center text-slate-500 shadow-[0_18px_70px_rgba(148,163,184,0.12)]">
+                No supported posts were loaded yet.
+              </div>
+            ) : null}
 
-        {!loading && !hasMoreContent && contentItems.length > 0 && (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-gray-500">🎉 All content loaded!</div>
+            {isLoadingMore ? (
+              <div className="flex justify-center py-8">
+                <div className="rounded-full border border-white/70 bg-white/80 px-5 py-3 text-sm text-slate-600 shadow-sm">
+                  Loading more from the list...
+                </div>
+              </div>
+            ) : null}
+
+            {!isInitialLoading && !isLoadingMore && hasMoreContent && items.length > 0 ? (
+              <div className="flex justify-center py-10">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Load more
+                </button>
+              </div>
+            ) : null}
           </div>
-        )}
+        </section>
       </main>
+
       <ScrollToTop />
     </div>
   );

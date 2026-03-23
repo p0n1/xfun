@@ -1,0 +1,520 @@
+import {
+  extractYouTubeVideoId,
+  getContentType,
+  isPastebinUrl,
+  normalizeListSourceUrl,
+  normalizeSupportedUrl,
+  normalizeXApiUrl,
+  normalizeXCanonicalUrl,
+} from '../utils/urlDetection';
+
+export const DEMO_URLS = [
+  'https://www.youtube.com/watch?v=VxkMSkDF8vY',
+  'https://x.com/SpaceX/status/1949680387330027593',
+  'https://x.com/SpaceX/status/1949993416604951017',
+  'https://www.youtube.com/watch?v=hI9HQfCAw64',
+  'https://x.com/AMAZlNGNATURE/status/1932563688667373813',
+  'https://www.youtube.com/watch?v=AZ7AcvbebKo',
+  'https://x.com/NoContextHumans/status/1949803858063970648',
+  'https://x.com/niccruzpatane/status/1946967976005042231',
+  'https://x.com/SpaceX/status/1946437942265987384',
+  'https://youtu.be/2R8V68viXqk',
+  'https://x.com/johnkrausphotos/status/1947054042787762669',
+  'https://x.com/SpaceBasedFox/status/1946403321646116865',
+  'https://x.com/AMAZlNGNATURE/status/1941281137915040187',
+  'https://www.youtube.com/watch?v=6yb6cSHqEGs',
+  'https://x.com/satofishi/status/1908020230561075521',
+  'https://x.com/Rainmaker1973/status/1950054930384830578',
+  'https://x.com/Rainmaker1973/status/1945522890889212414',
+  'https://x.com/yourcloudnin3/status/1944214180472733905',
+  'https://x.com/not_2b_or_2b/status/1949666334616232152',
+  'https://twitter.com/joely7758521/status/1947472826489016745',
+  'https://x.com/interesting_aIl/status/1945914505633902667',
+  'https://x.com/DashHuang/status/1945939956444410008',
+  'https://x.com/earth_tracker/status/1944988485485781326',
+  'https://x.com/Rainmaker1973/status/1943173340472185135',
+  'https://x.com/catsareblessing/status/1941930158392553923',
+  'https://x.com/iam_smx/status/1940714232821277108',
+  'https://x.com/Ivar_A2428/status/1939698895598276770',
+  'https://twitter.com/jack/status/20',
+  'https://twitter.com/elonmusk/status/1585841080431321088',
+  'https://x.com/konstructivizm/status/1939430423190470904',
+  'https://x.com/HowThingsWork_/status/1938658586839990720',
+  'https://x.com/Rainmaker1973/status/1938845424628179186',
+  'https://x.com/historigins/status/1938630539696619880',
+  'https://x.com/Crazymoments01/status/1938506613117358262',
+  'https://x.com/gunsnrosesgirl3/status/1938283624794636738',
+  'https://x.com/TodayiLearrned/status/1937704284713365861',
+  'https://x.com/AMAZlNGNATURE/status/1937495493476487329',
+  'https://x.com/PicturesFoIder/status/1936868452242760065',
+  'https://x.com/UNIVERSE_FEEDS/status/1936873263038074891',
+  'https://x.com/Rainmaker1973/status/1936647837615296894',
+];
+
+export const DEMO_LISTS = [
+  {
+    name: 'SpaceX posts',
+    url: 'https://raw.githubusercontent.com/p0n1/xfun/refs/heads/main/demo-lists/spacex.txt',
+    description: 'Launch clips, photos, and mission moments.',
+  },
+];
+
+export const BATCH_SIZE = 3;
+
+export interface XPhoto {
+  url: string;
+  width: number;
+  height: number;
+}
+
+export interface XVideoVariant {
+  contentType: string;
+  url: string;
+  bitrate?: number;
+}
+
+export interface XVideo {
+  url: string;
+  thumbnailUrl: string;
+  duration: number;
+  width: number;
+  height: number;
+  variants: XVideoVariant[];
+}
+
+export interface XAuthor {
+  name: string;
+  handle: string;
+  avatarUrl: string;
+}
+
+export interface XPostItem {
+  kind: 'x';
+  id: string;
+  sourceUrl: string;
+  text: string;
+  createdAt: string;
+  author: XAuthor;
+  photos: XPhoto[];
+  videos: XVideo[];
+  quote?: XPostItem;
+}
+
+export interface YouTubeMetadata {
+  title: string;
+  authorName: string;
+  authorUrl: string;
+  thumbnailUrl: string;
+  providerName: string;
+}
+
+export interface YouTubeItem {
+  kind: 'youtube';
+  id: string;
+  sourceUrl: string;
+  videoId: string;
+  metadata: YouTubeMetadata | null;
+  metadataError?: string;
+}
+
+export type FeedItem = XPostItem | YouTubeItem;
+
+interface RawFxAuthor {
+  name: string;
+  screen_name: string;
+  avatar_url: string;
+}
+
+interface RawFxPhoto {
+  url: string;
+  width: number;
+  height: number;
+}
+
+interface RawFxVideoVariant {
+  content_type: string;
+  url: string;
+  bitrate?: number;
+}
+
+interface RawFxVideo {
+  url: string;
+  thumbnail_url: string;
+  duration: number;
+  width: number;
+  height: number;
+  variants: RawFxVideoVariant[];
+}
+
+interface RawFxMedia {
+  photos?: RawFxPhoto[];
+  videos?: RawFxVideo[];
+}
+
+interface RawFxTweet {
+  url: string;
+  id: string;
+  text: string;
+  created_at: string;
+  author: RawFxAuthor;
+  media?: RawFxMedia;
+  quote?: RawFxTweet;
+}
+
+interface RawFxResponse {
+  code: number;
+  message: string;
+  tweet: RawFxTweet;
+}
+
+function looksLikeHtml(content: string): boolean {
+  const trimmed = content.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  return (
+    trimmed.startsWith('<!doctype html') ||
+    trimmed.startsWith('<html') ||
+    (trimmed.includes('<head') && trimmed.includes('<body')) ||
+    (trimmed.includes('<script') && trimmed.includes('</html>'))
+  );
+}
+
+function looksLikeCloudflareChallenge(content: string): boolean {
+  const lower = content.toLowerCase();
+
+  return (
+    lower.includes('cf_chl') ||
+    lower.includes('cloudflare') ||
+    lower.includes('just a moment') ||
+    lower.includes('challenge-error-text') ||
+    lower.includes('checking your browser')
+  );
+}
+
+export function deduplicateUrls(urls: string[]): {
+  urls: string[];
+  duplicatesRemoved: number;
+} {
+  const seen = new Set<string>();
+  const deduplicated: string[] = [];
+  let duplicatesRemoved = 0;
+
+  for (const url of urls) {
+    const normalized = normalizeSupportedUrl(url);
+    if (seen.has(normalized)) {
+      duplicatesRemoved += 1;
+      continue;
+    }
+
+    seen.add(normalized);
+    deduplicated.push(normalized);
+  }
+
+  return {
+    urls: deduplicated,
+    duplicatesRemoved,
+  };
+}
+
+export function parseUrlList(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && !line.startsWith('//'))
+    .map((line) => {
+      const xMatch = line.match(
+        /^(https:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d+)/i,
+      );
+      if (xMatch) {
+        return normalizeXCanonicalUrl(xMatch[1]);
+      }
+
+      const videoId = extractYouTubeVideoId(line);
+      if (videoId) {
+        return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+
+      return null;
+    })
+    .filter((url): url is string => Boolean(url));
+}
+
+async function fetchWithCorsProxy(url: string): Promise<string> {
+  const proxies = [
+    {
+      name: 'allorigins',
+      url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      extractContent: (response: string) => {
+        const data = JSON.parse(response) as { contents: string };
+        return data.contents;
+      },
+    },
+    {
+      name: 'corsproxy.io',
+      url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      extractContent: (response: string) => response,
+    },
+    {
+      name: 'codetabs',
+      url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+      extractContent: (response: string) => response,
+    },
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const proxy of proxies) {
+    try {
+      const response = await fetch(proxy.url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const text = await response.text();
+      const content = proxy.extractContent(text);
+
+      if (looksLikeHtml(content)) {
+        if (looksLikeCloudflareChallenge(content)) {
+          throw new Error('Received Cloudflare challenge HTML');
+        }
+
+        throw new Error('Received HTML instead of plain text');
+      }
+
+      return content;
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error : new Error('Unknown CORS proxy error');
+    }
+  }
+
+  throw lastError ?? new Error('All CORS proxies failed');
+}
+
+function formatListFetchError(originalUrl: string, message: string): string {
+  const usesProxy = isPastebinUrl(originalUrl);
+  const lowerMessage = message.toLowerCase();
+
+  if (usesProxy && lowerMessage.includes('cloudflare')) {
+    return 'Pastebin blocked the proxy with a Cloudflare challenge. Try again later or use a GitHub raw URL or Gist instead.';
+  }
+
+  if (usesProxy && lowerMessage.includes('html')) {
+    return 'The proxy returned HTML instead of a plain text list. Use a raw text URL, or try GitHub or Gist instead.';
+  }
+
+  if (usesProxy && lowerMessage.includes('all cors proxies failed')) {
+    return 'All fallback proxies failed to load this Pastebin source. Try again later or use GitHub or Gist instead.';
+  }
+
+  return `Failed to load the list: ${message}`;
+}
+
+export async function loadUrlList(listUrl: string): Promise<{
+  urls: string[];
+  duplicatesRemoved: number;
+  normalizedListUrl: string;
+}> {
+  const normalizedListUrl = normalizeListSourceUrl(listUrl.trim());
+  const usesProxy = isPastebinUrl(normalizedListUrl);
+
+  try {
+    let text: string;
+
+    if (usesProxy) {
+      text = await fetchWithCorsProxy(normalizedListUrl);
+    } else {
+      const response = await fetch(normalizedListUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      text = await response.text();
+    }
+
+    const urls = parseUrlList(text);
+
+    if (urls.length === 0) {
+      if (looksLikeHtml(text)) {
+        if (looksLikeCloudflareChallenge(text)) {
+          throw new Error(
+            'Pastebin blocked the request with a Cloudflare challenge.',
+          );
+        }
+
+        throw new Error(
+          'The URL returned HTML instead of a plain text list.',
+        );
+      }
+
+      throw new Error('No supported X/Twitter or YouTube URLs were found.');
+    }
+
+    const deduplicated = deduplicateUrls(urls);
+
+    return {
+      urls: deduplicated.urls,
+      duplicatesRemoved: deduplicated.duplicatesRemoved,
+      normalizedListUrl,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(formatListFetchError(listUrl, message));
+  }
+}
+
+function normalizeFxTweet(tweet: RawFxTweet): XPostItem {
+  return {
+    kind: 'x',
+    id: tweet.id,
+    sourceUrl: normalizeXCanonicalUrl(tweet.url),
+    text: tweet.text ?? '',
+    createdAt: tweet.created_at,
+    author: {
+      name: tweet.author.name,
+      handle: tweet.author.screen_name,
+      avatarUrl: tweet.author.avatar_url,
+    },
+    photos:
+      tweet.media?.photos?.map((photo) => ({
+        url: photo.url,
+        width: photo.width,
+        height: photo.height,
+      })) ?? [],
+    videos:
+      tweet.media?.videos?.map((video) => ({
+        url: video.url,
+        thumbnailUrl: video.thumbnail_url,
+        duration: video.duration,
+        width: video.width,
+        height: video.height,
+        variants: video.variants.map((variant) => ({
+          contentType: variant.content_type,
+          url: variant.url,
+          bitrate: variant.bitrate,
+        })),
+      })) ?? [],
+    quote: tweet.quote ? normalizeFxTweet(tweet.quote) : undefined,
+  };
+}
+
+async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) {
+    throw new Error(`Unsupported YouTube URL: ${url}`);
+  }
+
+  const canonicalUrl = normalizeSupportedUrl(url);
+  const oembedUrl = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(
+    canonicalUrl,
+  )}`;
+
+  try {
+    const response = await fetch(oembedUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as {
+      title: string;
+      author_name: string;
+      author_url: string;
+      thumbnail_url: string;
+      provider_name: string;
+    };
+
+    return {
+      kind: 'youtube',
+      id: canonicalUrl,
+      sourceUrl: canonicalUrl,
+      videoId,
+      metadata: {
+        title: data.title,
+        authorName: data.author_name,
+        authorUrl: data.author_url,
+        thumbnailUrl: data.thumbnail_url,
+        providerName: data.provider_name,
+      },
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to load video metadata.';
+
+    return {
+      kind: 'youtube',
+      id: canonicalUrl,
+      sourceUrl: canonicalUrl,
+      videoId,
+      metadata: null,
+      metadataError: message,
+    };
+  }
+}
+
+async function fetchXItem(url: string): Promise<XPostItem> {
+  const apiUrl = normalizeXApiUrl(url);
+  const response = await fetch(apiUrl);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as RawFxResponse;
+  if (data.code !== 200) {
+    throw new Error(data.message || 'Failed to fetch X post.');
+  }
+
+  return normalizeFxTweet(data.tweet);
+}
+
+export async function fetchFeedItem(url: string): Promise<FeedItem> {
+  const contentType = getContentType(url);
+
+  if (contentType === 'twitter') {
+    return fetchXItem(url);
+  }
+
+  if (contentType === 'youtube') {
+    return fetchYouTubeItem(url);
+  }
+
+  throw new Error(`Unsupported content URL: ${url}`);
+}
+
+export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
+  const mp4Variants = variants.filter(
+    (variant) =>
+      variant.contentType === 'video/mp4' && typeof variant.bitrate === 'number',
+  );
+
+  if (mp4Variants.length === 0) {
+    return variants[0]?.url;
+  }
+
+  return [...mp4Variants].sort(
+    (a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0),
+  )[0]?.url;
+}
+
+export function collectPreviewMedia(items: FeedItem[]): string[] {
+  const previewMedia: string[] = [];
+
+  for (const item of items) {
+    if (item.kind === 'x') {
+      if (item.photos[0]) {
+        previewMedia.push(item.photos[0].url);
+      } else if (item.videos[0]) {
+        previewMedia.push(item.videos[0].thumbnailUrl);
+      } else if (item.quote?.photos[0]) {
+        previewMedia.push(item.quote.photos[0].url);
+      }
+    } else if (item.metadata?.thumbnailUrl) {
+      previewMedia.push(item.metadata.thumbnailUrl);
+    }
+
+    if (previewMedia.length === 3) {
+      break;
+    }
+  }
+
+  return previewMedia;
+}
