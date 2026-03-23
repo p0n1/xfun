@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import PhotoSwipe from 'photoswipe';
 import 'photoswipe/style.css';
-import GuardedLinkDialog from './GuardedLinkDialog';
 import { getBestVideoUrl, type XPhoto, type XPostItem, type XVideo } from '../lib/content';
 
 interface XPostCardProps {
@@ -230,65 +229,79 @@ function QuoteBlock({ quote }: { quote: XPostItem }) {
 }
 
 export default function XPostCard({ item }: XPostCardProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+
+  const handleDateClick = () => {
+    const nextClickCount = clickCount + 1;
+    setClickCount(nextClickCount);
+
+    if (nextClickCount >= 3) {
+      window.open(item.sourceUrl, '_blank', 'noopener,noreferrer');
+      setClickCount(0);
+      return;
+    }
+
+    window.setTimeout(() => {
+      setClickCount(0);
+    }, 3000);
+  };
+
+  const getClickMessage = () => {
+    if (clickCount === 1) {
+      return 'Click 2 more times to open the original post';
+    }
+
+    if (clickCount === 2) {
+      return 'Click 1 more time to open the original post';
+    }
+
+    return '';
+  };
 
   return (
-    <>
-      <article className="relative overflow-hidden rounded-[2rem] border border-white/65 bg-white/80 p-5 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:p-7">
-        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/70 to-transparent" />
+    <article className="relative overflow-hidden rounded-[2rem] border border-white/65 bg-white/80 p-5 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:p-7">
+      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/70 to-transparent" />
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <Image
-              src={item.author.avatarUrl}
-              alt={item.author.name}
-              width={52}
-              height={52}
-              className="h-12 w-12 rounded-full ring-2 ring-white"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-900">
-                {item.author.name}
-              </p>
-              <p className="truncate text-sm text-slate-500">@{item.author.handle}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsDialogOpen(true)}
-            className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            Open on X
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-5">
-          {item.text ? (
-            <p className="whitespace-pre-wrap text-[1rem] leading-7 text-slate-700 sm:text-[1.05rem]">
-              {item.text}
-            </p>
-          ) : null}
-
-          <MediaGallery photos={item.photos} videos={item.videos} />
-
-          {item.quote ? <QuoteBlock quote={item.quote} /> : null}
-        </div>
-
-        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <time className="text-sm text-slate-500">{formatDate(item.createdAt)}</time>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sky-600">
-            X post
+      <div className="flex min-w-0 items-center gap-3">
+        <Image
+          src={item.author.avatarUrl}
+          alt={item.author.name}
+          width={52}
+          height={52}
+          className="h-12 w-12 rounded-full ring-2 ring-white"
+        />
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-slate-900">
+            {item.author.name}
           </p>
-        </footer>
-      </article>
+          <p className="truncate text-sm text-slate-500">@{item.author.handle}</p>
+        </div>
+      </div>
 
-      <GuardedLinkDialog
-        authorName={item.author.name}
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        postUrl={item.sourceUrl}
-      />
-    </>
+      <div className="mt-5 space-y-5">
+        {item.text ? (
+          <p className="whitespace-pre-wrap text-[1rem] leading-7 text-slate-700 sm:text-[1.05rem]">
+            {item.text}
+          </p>
+        ) : null}
+
+        <MediaGallery photos={item.photos} videos={item.videos} />
+
+        {item.quote ? <QuoteBlock quote={item.quote} /> : null}
+      </div>
+
+      <footer className="mt-5 border-t border-slate-100 pt-4">
+        <button
+          type="button"
+          onClick={handleDateClick}
+          className="text-left text-sm text-slate-500 transition hover:text-slate-700"
+        >
+          <time>{formatDate(item.createdAt)}</time>
+        </button>
+        {clickCount > 0 ? (
+          <p className="mt-2 text-xs font-medium text-sky-600">{getClickMessage()}</p>
+        ) : null}
+      </footer>
+    </article>
   );
 }
