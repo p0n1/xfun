@@ -4,270 +4,230 @@ import { useState } from 'react';
 import Image from 'next/image';
 import PhotoSwipe from 'photoswipe';
 import 'photoswipe/style.css';
-
-interface Tweet {
-  url: string;
-  id: string;
-  text: string;
-  author: {
-    name: string;
-    screen_name: string;
-    avatar_url: string;
-  };
-  created_at: string;
-  media?: {
-    photos?: Array<{
-      type: string;
-      url: string;
-      width: number;
-      height: number;
-    }>;
-    videos?: Array<{
-      url: string;
-      thumbnail_url: string;
-      duration: number;
-      width: number;
-      height: number;
-      variants: Array<{
-        content_type: string;
-        url: string;
-        bitrate?: number;
-      }>;
-    }>;
-  };
-  quote?: Tweet;
-}
+import GuardedLinkDialog from './GuardedLinkDialog';
+import { getBestVideoUrl, type XPhoto, type XPostItem, type XVideo } from '../lib/content';
 
 interface XPostCardProps {
-  tweet: Tweet;
+  item: XPostItem;
 }
 
-export default function XPostCard({ tweet }: XPostCardProps) {
-  const [clickCount, setClickCount] = useState(0);
-  
-  const allPhotos = [
-    ...(tweet.media?.photos || []),
-    ...(tweet.quote?.media?.photos || [])
-  ];
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+function pauseAllOtherVideos(currentVideo: HTMLVideoElement) {
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach((video) => {
+    if (video !== currentVideo && !video.paused) {
+      video.pause();
+    }
+  });
+}
 
-  const getBestVideoUrl = (variants: Array<{content_type: string; url: string; bitrate?: number}>) => {
-    const mp4Variants = variants.filter(v => v.content_type === 'video/mp4' && v.bitrate);
-    if (mp4Variants.length === 0) return variants[0]?.url;
-    
-    mp4Variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-    return mp4Variants[0].url;
-  };
-
+function MediaGallery({
+  photos,
+  videos,
+}: {
+  photos: XPhoto[];
+  videos: XVideo[];
+}) {
   const openGallery = (photoUrl: string) => {
-    const index = allPhotos.findIndex(photo => photo.url === photoUrl);
-    
-    const dataSource = allPhotos.map((photo) => ({
+    const index = photos.findIndex((photo) => photo.url === photoUrl);
+    const dataSource = photos.map((photo) => ({
+      alt: 'Post image',
+      height: photo.height,
       src: photo.url,
       width: photo.width,
-      height: photo.height,
-      alt: 'Tweet image'
     }));
 
     const lightbox = new PhotoSwipe({
-      dataSource,
-      index: index !== -1 ? index : 0,
-      showHideAnimationType: 'zoom',
-      showAnimationDuration: 400,
-      hideAnimationDuration: 400,
-      bgOpacity: 0.95,
-      spacing: 0.12,
       allowPanToNext: true,
-      zoom: true,
-      close: true,
       arrowKeys: true,
-      returnFocus: true,
-      trapFocus: true,
+      bgOpacity: 0.92,
       clickToCloseNonZoomable: false,
-      imageClickAction: 'zoom-or-close',
-      tapAction: 'toggle-controls',
+      dataSource,
       doubleTapAction: 'zoom',
-      preloaderDelay: 2000,
-      loop: true
+      index: index === -1 ? 0 : index,
+      loop: true,
+      preloaderDelay: 1000,
+      returnFocus: true,
+      showHideAnimationType: 'zoom',
+      spacing: 0.12,
+      tapAction: 'toggle-controls',
     });
 
     lightbox.init();
   };
 
-  const handleDateClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const newClickCount = clickCount + 1;
-    setClickCount(newClickCount);
-    
-    if (newClickCount === 3) {
-      window.open(tweet.url, '_blank', 'noopener,noreferrer');
-      setClickCount(0);
-    } else {
-      setTimeout(() => {
-        setClickCount(0);
-      }, 3000);
-    }
-  };
+  if (photos.length === 0 && videos.length === 0) {
+    return null;
+  }
 
-  const getClickMessage = () => {
-    switch (clickCount) {
-      case 0:
-        return '';
-      case 1:
-        return 'Click 2 more times to open original post';
-      case 2:
-        return 'Click 1 more time to open original post';
-      default:
-        return '';
-    }
-  };
+  return (
+    <div className="space-y-4">
+      {videos.length > 0 ? (
+        <div className="space-y-3">
+          {videos.map((video) => {
+            const bestVideoUrl = getBestVideoUrl(video.variants);
 
-  const pauseAllOtherVideos = (currentVideo: HTMLVideoElement) => {
-    // Get all video elements on the page
-    const allVideos = document.querySelectorAll('video');
-    allVideos.forEach(video => {
-      if (video !== currentVideo && !video.paused) {
-        video.pause();
-      }
-    });
-  };
-
-  const handleVideoPlay = (video: HTMLVideoElement) => {
-    pauseAllOtherVideos(video);
-  };
-
-
-  const renderMedia = (media: Tweet['media']) => {
-    if (!media) return null;
-
-    return (
-      <div className="mt-3">
-        {media.videos && media.videos.length > 0 && (
-          <div className="space-y-3 sm:space-y-4">
-            {media.videos.map((video, index) => (
-              <div key={index} className="relative overflow-hidden rounded-xl shadow-md">
+            return (
+              <div
+                key={video.url}
+                className="overflow-hidden rounded-[1.5rem] bg-slate-950 shadow-[0_20px_60px_rgba(15,23,42,0.18)]"
+              >
                 <video
                   controls
-                  poster={video.thumbnail_url}
-                  className="w-full h-auto object-contain bg-black rounded-xl"
-                  style={{ 
+                  poster={video.thumbnailUrl}
+                  className="h-auto w-full bg-slate-950 object-contain"
+                  style={{
                     aspectRatio: `${video.width}/${video.height}`,
-                    maxHeight: 'min(70vh, 400px)'
+                    maxHeight: 'min(72vh, 34rem)',
                   }}
                   preload="metadata"
-                  onPlay={(e) => handleVideoPlay(e.currentTarget)}
+                  onPlay={(event) => pauseAllOtherVideos(event.currentTarget)}
                 >
-                  <source src={getBestVideoUrl(video.variants)} type="video/mp4" />
+                  {bestVideoUrl ? (
+                    <source src={bestVideoUrl} type="video/mp4" />
+                  ) : null}
                   Your browser does not support the video tag.
                 </video>
-                <div className="absolute inset-0 pointer-events-none rounded-xl ring-1 ring-black/5"></div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {media.photos && media.photos.length > 0 && (
-          <div className={`grid gap-2 sm:gap-3 ${media.videos && media.videos.length > 0 ? 'mt-4' : ''} ${
-            media.photos.length === 1 
-              ? 'grid-cols-1' 
-              : media.photos.length === 2 
-              ? 'grid-cols-1 sm:grid-cols-2' 
-              : media.photos.length === 3
-              ? 'grid-cols-1 lg:grid-cols-3'
-              : 'grid-cols-1 sm:grid-cols-2'
-          }`}>
-            {media.photos.map((photo, index) => (
-              <div
-                key={index}
-                className="relative cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all duration-200"
-                onClick={() => openGallery(photo.url)}
-              >
-                <Image
-                  src={photo.url}
-                  alt="Tweet image"
-                  width={photo.width}
-                  height={photo.height}
-                  className="w-full h-40 sm:h-48 lg:h-96 object-cover rounded-xl shadow-sm"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderQuoteTweet = (quote: Tweet) => {
-    return (
-      <div className="mt-3 border-l-4 border-l-pink-400 border-2 border-pink-200 rounded-xl p-3 sm:p-4 bg-gradient-to-r from-pink-50 to-purple-50">
-        <div className="flex items-center space-x-2 mb-2">
-          <Image
-            src={quote.author.avatar_url}
-            alt={quote.author.name}
-            width={28}
-            height={28}
-            className="w-7 h-7 rounded-full"
-          />
-          <span className="font-semibold text-sm text-purple-700">{quote.author.name}</span>
-          <span className="text-pink-600 text-sm">@{quote.author.screen_name}</span>
+            );
+          })}
         </div>
-        <p className="text-sm text-gray-800 mb-2 leading-relaxed">{quote.text}</p>
-        {renderMedia(quote.media)}
+      ) : null}
+
+      {photos.length > 0 ? (
+        <div
+          className={`grid gap-3 ${
+            photos.length === 1
+              ? 'grid-cols-1'
+              : photos.length === 2
+                ? 'grid-cols-2'
+                : 'grid-cols-2 md:grid-cols-3'
+          }`}
+        >
+          {photos.map((photo) => (
+            <button
+              key={photo.url}
+              type="button"
+              onClick={() => openGallery(photo.url)}
+              className="group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left"
+            >
+              <Image
+                src={photo.url}
+                alt="Post image"
+                width={photo.width}
+                height={photo.height}
+                className={`w-full object-cover transition duration-500 group-hover:scale-[1.02] ${
+                  photos.length === 1 ? 'max-h-[38rem]' : 'h-56 md:h-72'
+                }`}
+              />
+              <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/15 to-transparent opacity-0 transition group-hover:opacity-100" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function QuoteBlock({ quote }: { quote: XPostItem }) {
+  return (
+    <section className="space-y-4 rounded-[1.75rem] border border-sky-200/80 bg-sky-50/80 p-4 sm:p-5">
+      <div className="flex items-center gap-3">
+        <Image
+          src={quote.author.avatarUrl}
+          alt={quote.author.name}
+          width={40}
+          height={40}
+          className="h-10 w-10 rounded-full"
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {quote.author.name}
+          </p>
+          <p className="truncate text-sm text-slate-500">@{quote.author.handle}</p>
+        </div>
       </div>
-    );
-  };
+
+      {quote.text ? (
+        <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+          {quote.text}
+        </p>
+      ) : null}
+
+      <MediaGallery photos={quote.photos} videos={quote.videos} />
+    </section>
+  );
+}
+
+export default function XPostCard({ item }: XPostCardProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
     <>
-      <article className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-4 sm:p-6 hover:shadow-xl hover:border-purple-300 transition-all duration-300">
-        <div className="flex items-start space-x-2 sm:space-x-3 mb-3">
-          <Image
-            src={tweet.author.avatar_url}
-            alt={tweet.author.name}
-            width={48}
-            height={48}
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
-          />
-          
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-purple-700 text-sm sm:text-base leading-tight truncate">{tweet.author.name}</h3>
-            <div className="text-blue-600 text-xs sm:text-sm truncate">@{tweet.author.screen_name}</div>
-          </div>
-        </div>
-        
-        <p className="text-gray-800 text-sm sm:text-base leading-relaxed mb-3 whitespace-pre-wrap">
-          {tweet.text}
-        </p>
+      <article className="relative overflow-hidden rounded-[2rem] border border-white/65 bg-white/80 p-5 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:p-7">
+        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/70 to-transparent" />
 
-        {renderMedia(tweet.media)}
-        {tweet.quote && renderQuoteTweet(tweet.quote)}
-
-        <div className="mt-3 sm:mt-4">
-          <div className="flex flex-col space-y-1">
-            <button
-              onClick={handleDateClick}
-              className="text-gray-400 hover:text-gray-600 text-xs sm:text-sm transition-colors text-left cursor-pointer"
-            >
-              <time>{formatDate(tweet.created_at)}</time>
-            </button>
-            {clickCount > 0 && (
-              <div className="text-xs text-blue-600 font-medium animate-pulse">
-                {getClickMessage()} 💡
-              </div>
-            )}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Image
+              src={item.author.avatarUrl}
+              alt={item.author.name}
+              width={52}
+              height={52}
+              className="h-12 w-12 rounded-full ring-2 ring-white"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-slate-900">
+                {item.author.name}
+              </p>
+              <p className="truncate text-sm text-slate-500">@{item.author.handle}</p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsDialogOpen(true)}
+            className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Open on X
+          </button>
         </div>
+
+        <div className="mt-5 space-y-5">
+          {item.text ? (
+            <p className="whitespace-pre-wrap text-[1rem] leading-7 text-slate-700 sm:text-[1.05rem]">
+              {item.text}
+            </p>
+          ) : null}
+
+          <MediaGallery photos={item.photos} videos={item.videos} />
+
+          {item.quote ? <QuoteBlock quote={item.quote} /> : null}
+        </div>
+
+        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <time className="text-sm text-slate-500">{formatDate(item.createdAt)}</time>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sky-600">
+            X post
+          </p>
+        </footer>
       </article>
 
+      <GuardedLinkDialog
+        authorName={item.author.name}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        postUrl={item.sourceUrl}
+      />
     </>
   );
 }

@@ -1,844 +1,494 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
+import Image from 'next/image';
+import Reveal from './components/Reveal';
+import ScrollToTop from './components/ScrollToTop';
 import XPostCard from './components/XPostCard';
 import YouTubeCard from './components/YouTubeCard';
-import ScrollToTop from './components/ScrollToTop';
-import Image from 'next/image';
-import { getContentType, normalizeXUrl } from './utils/urlDetection';
+import { useFeedLoader } from './hooks/useFeedLoader';
+import { useListSource } from './hooks/useListSource';
+import { usePwaState } from './hooks/usePwaState';
+import { collectPreviewMedia } from './lib/content';
 
-const DEMO_URLS = [
-  'https://www.youtube.com/watch?v=VxkMSkDF8vY',
-  'https://x.com/SpaceX/status/1949680387330027593',
-  'https://x.com/SpaceX/status/1949993416604951017',
-  'https://www.youtube.com/watch?v=hI9HQfCAw64',
-  'https://x.com/AMAZlNGNATURE/status/1932563688667373813',
-  'https://www.youtube.com/watch?v=AZ7AcvbebKo',
-  'https://x.com/NoContextHumans/status/1949803858063970648',
-  'https://x.com/niccruzpatane/status/1946967976005042231',
-  'https://x.com/SpaceX/status/1946437942265987384',
-  'https://youtu.be/2R8V68viXqk',
-  'https://x.com/johnkrausphotos/status/1947054042787762669',
-  'https://x.com/SpaceBasedFox/status/1946403321646116865',
-  'https://x.com/AMAZlNGNATURE/status/1941281137915040187',
-  'https://www.youtube.com/watch?v=6yb6cSHqEGs',
-  'https://x.com/satofishi/status/1908020230561075521',
-  'https://x.com/Rainmaker1973/status/1950054930384830578',
-  'https://x.com/Rainmaker1973/status/1945522890889212414',
-  'https://x.com/yourcloudnin3/status/1944214180472733905',
-  'https://x.com/not_2b_or_2b/status/1949666334616232152',
-  'https://twitter.com/joely7758521/status/1947472826489016745',
-  'https://x.com/interesting_aIl/status/1945914505633902667',
-  'https://x.com/DashHuang/status/1945939956444410008',
-  'https://x.com/earth_tracker/status/1944988485485781326',
-  'https://x.com/Rainmaker1973/status/1943173340472185135',
-  'https://x.com/catsareblessing/status/1941930158392553923',
-  'https://x.com/iam_smx/status/1940714232821277108',
-  'https://x.com/Ivar_A2428/status/1939698895598276770',
-  'https://twitter.com/jack/status/20',
-  'https://twitter.com/elonmusk/status/1585841080431321088',
-  'https://x.com/konstructivizm/status/1939430423190470904',
-  'https://x.com/HowThingsWork_/status/1938658586839990720',
-  'https://x.com/Rainmaker1973/status/1938845424628179186',
-  'https://x.com/historigins/status/1938630539696619880',
-  'https://x.com/Crazymoments01/status/1938506613117358262',
-  'https://x.com/gunsnrosesgirl3/status/1938283624794636738',
-  'https://x.com/TodayiLearrned/status/1937704284713365861',
-  'https://x.com/AMAZlNGNATURE/status/1937495493476487329',
-  'https://x.com/PicturesFoIder/status/1936868452242760065',
-  'https://x.com/UNIVERSE_FEEDS/status/1936873263038074891',
-  'https://x.com/Rainmaker1973/status/1936647837615296894',
-];
+function StatusPill({
+  children,
+  tone = 'neutral',
+}: {
+  children: ReactNode;
+  tone?: 'neutral' | 'online' | 'offline' | 'accent';
+}) {
+  const toneClassName =
+    tone === 'online'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : tone === 'offline'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : tone === 'accent'
+          ? 'border-sky-200 bg-sky-50 text-sky-700'
+          : 'border-white/60 bg-white/65 text-slate-700';
 
-const BATCH_SIZE = 3;
-
-interface Tweet {
-  url: string;
-  id: string;
-  text: string;
-  author: {
-    name: string;
-    screen_name: string;
-    avatar_url: string;
-  };
-  created_at: string;
-  media?: {
-    photos?: Array<{
-      type: string;
-      url: string;
-      width: number;
-      height: number;
-    }>;
-    videos?: Array<{
-      url: string;
-      thumbnail_url: string;
-      duration: number;
-      width: number;
-      height: number;
-      variants: Array<{
-        content_type: string;
-        url: string;
-        bitrate?: number;
-      }>;
-    }>;
-  };
-  quote?: Tweet;
-}
-
-interface ContentItem {
-  type: 'twitter' | 'youtube';
-  url: string;
-  data?: Tweet;
-  id: string;
-}
-
-interface ApiResponse {
-  code: number;
-  message: string;
-  tweet: Tweet;
-}
-
-interface BatchFetchResult {
-  applied: boolean;
-  addedCount: number;
-  hasMoreContent: boolean;
-}
-
-function looksLikeHtml(content: string): boolean {
-  const trimmed = content.trim().toLowerCase();
-  if (!trimmed) return false;
   return (
-    trimmed.startsWith('<!doctype html') ||
-    trimmed.startsWith('<html') ||
-    (trimmed.includes('<head') && trimmed.includes('<body')) ||
-    (trimmed.includes('<script') && trimmed.includes('</html>'))
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${toneClassName}`}
+    >
+      {children}
+    </span>
   );
 }
 
-function looksLikeCloudflareChallenge(content: string): boolean {
-  const lower = content.toLowerCase();
-  return (
-    lower.includes('cf_chl') ||
-    lower.includes('cloudflare') ||
-    lower.includes('just a moment') ||
-    lower.includes('challenge-error-text') ||
-    lower.includes('checking your browser')
-  );
-}
-
-
-function deduplicateUrls(urls: string[]): { deduplicated: string[], duplicatesRemoved: number } {
-  const seen = new Set<string>();
-  const deduplicated: string[] = [];
-  let duplicatesRemoved = 0;
-
-  for (const url of urls) {
-    const normalizedForComparison = url.replace(/^https?:\/\/(twitter\.com|x\.com)/, 'https://x.com');
-    if (!seen.has(normalizedForComparison)) {
-      seen.add(normalizedForComparison);
-      deduplicated.push(url);
-    } else {
-      duplicatesRemoved++;
-    }
+function HeroPreview({ images }: { images: string[] }) {
+  if (images.length === 0) {
+    return (
+      <div className="grid h-full min-h-[20rem] grid-cols-2 gap-3 rounded-[2.5rem] border border-white/60 bg-white/40 p-4 backdrop-blur">
+        <div className="rounded-[1.75rem] bg-gradient-to-br from-sky-200 via-cyan-100 to-white" />
+        <div className="rounded-[1.75rem] bg-gradient-to-br from-yellow-100 via-orange-100 to-rose-100" />
+        <div className="rounded-[1.75rem] bg-gradient-to-br from-violet-100 via-fuchsia-100 to-white" />
+        <div className="flex items-end rounded-[1.75rem] bg-slate-900 p-5 text-white">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-sky-200">
+              Curiosity reel
+            </p>
+            <p className="mt-2 max-w-[14rem] text-xl font-semibold leading-tight">
+              Photos and videos land here without the X timeline clutter.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  return { deduplicated, duplicatesRemoved };
+  return (
+    <div className="grid min-h-[20rem] grid-cols-2 gap-3 rounded-[2.5rem] border border-white/60 bg-white/40 p-4 backdrop-blur">
+      {images.slice(0, 3).map((imageUrl, index) => (
+        <div
+          key={imageUrl}
+          className={`relative overflow-hidden rounded-[1.75rem] ${
+            index === 0 ? 'row-span-2' : ''
+          }`}
+        >
+          <Image
+            src={imageUrl}
+            alt="Preview from the current feed"
+            fill
+            sizes="(min-width: 1024px) 24rem, 50vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-transparent" />
+        </div>
+      ))}
+      {images.length === 1 ? (
+        <div className="rounded-[1.75rem] bg-gradient-to-br from-sky-100 to-white" />
+      ) : null}
+    </div>
+  );
 }
 
 export default function Home() {
-  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [urlList, setUrlList] = useState<string[]>([]);
-  const [externalUrl, setExternalUrl] = useState<string>('');
-  const [isLoadingList, setIsLoadingList] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [showDemoOptions, setShowDemoOptions] = useState(false);
-  const [loadStats, setLoadStats] = useState({ successful: 0, failed: 0, total: 0, duplicatesRemoved: 0 });
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreContent, setHasMoreContent] = useState(true);
-  const urlListRequestIdRef = useRef(0);
-  const contentRequestIdRef = useRef(0);
-  const contentItemsRef = useRef<ContentItem[]>([]);
+  const {
+    activeSource,
+    demoLists,
+    duplicatesRemoved,
+    error: listError,
+    inputUrl,
+    isLoading: isLoadingList,
+    setInputUrl,
+    urls,
+    loadDemo,
+    loadDemoListUrl,
+    loadRemoteList,
+  } = useListSource();
+  const {
+    error: feedError,
+    hasMoreContent,
+    isInitialLoading,
+    isLoadingMore,
+    items,
+    loadMore,
+    stats,
+  } = useFeedLoader(urls);
+  const { canInstall, installApp, isOnline, isStandalone } = usePwaState();
+  const [shareMessage, setShareMessage] = useState('');
+  const previewMedia = collectPreviewMedia(items);
+  const processedCount = stats.successful + stats.failed;
+  const progressPercent =
+    stats.total > 0 ? Math.round((processedCount / stats.total) * 100) : 0;
 
-  const commitUrlList = useCallback((urls: string[], duplicatesRemoved: number) => {
-    contentRequestIdRef.current += 1;
-    contentItemsRef.current = [];
-    setError(null);
-    setIsLoadingList(false);
-    setLoading(true);
-    setContentItems([]);
-    setCurrentBatch(0);
-    setIsLoadingMore(false);
-    setHasMoreContent(urls.length > 0);
-    setUrlList(urls);
-    setLoadStats({
-      successful: 0,
-      failed: 0,
-      total: urls.length,
-      duplicatesRemoved
-    });
-  }, []);
-
-  // CORS proxy fallback system - tries proxies in order of reliability
-  // https://gist.github.com/reynaldichernando/eab9c4e31e30677f176dc9eb732963ef CORS proxies list
-  const fetchWithCorsProxy = async (url: string): Promise<string> => {
-    const proxies = [
-      {
-        name: 'allorigins',
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => {
-          const data = JSON.parse(response);
-          return data.contents;
-        }
-      },
-      {
-        name: 'corsproxy.io',
-        url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        extractContent: (response: string) => response // Returns content directly
-      },
-      {
-        name: 'codetabs',
-        url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-        extractContent: (response: string) => response // Returns content directly
-      }
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const proxy of proxies) {
-      try {
-        console.log(`Trying CORS proxy: ${proxy.name}`);
-        const response = await fetch(proxy.url);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const text = await response.text();
-        const content = proxy.extractContent(text);
-        if (looksLikeHtml(content)) {
-          if (looksLikeCloudflareChallenge(content)) {
-            throw new Error('Received Cloudflare challenge HTML');
-          }
-          throw new Error('Received HTML instead of plain text');
-        }
-
-        console.log(`Successfully fetched via ${proxy.name}`);
-        return content;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        console.warn(`CORS proxy ${proxy.name} failed: ${errorMsg}`);
-        lastError = error instanceof Error ? error : new Error(errorMsg);
-        continue;
-      }
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!inputUrl.trim()) {
+      return;
     }
 
-    if (lastError) {
-      throw new Error(`All CORS proxies failed: ${lastError.message}`);
-    }
-    throw new Error('All CORS proxies failed');
+    await loadRemoteList(inputUrl);
   };
 
-  const fetchUrlList = useCallback(async (listUrl: string) => {
-    const requestId = ++urlListRequestIdRef.current;
-    setIsLoadingList(true);
-    // Use CORS proxy for URLs that don't support CORS
-    const needsProxy = listUrl.startsWith('https://pastebin.com/raw');
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
 
     try {
-      let text: string;
-
-      if (needsProxy) {
-        text = await fetchWithCorsProxy(listUrl);
-      } else {
-        const response = await fetch(listUrl);
-        text = await response.text();
-      }
-      const rawUrls = text
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#') && !line.startsWith('//'))
-        .map(line => {
-          // Match Twitter/X URLs
-          const twitterMatch = line.match(/^(https:\/\/(?:twitter\.com|x\.com)\/\w+\/status\/\d+)/);
-          if (twitterMatch) return twitterMatch[1];
-
-          // Match YouTube URLs
-          const youtubeMatch = line.match(/^(https:\/\/(?:www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s]*)/);
-          if (youtubeMatch) return youtubeMatch[1];
-
-          return null;
-        })
-        .filter((url): url is string => url !== null);
-
-      if (requestId !== urlListRequestIdRef.current) {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'X Fun',
+          text: 'A curated feed of X posts and videos.',
+          url: shareUrl,
+        });
+        setShareMessage('Shared.');
         return;
       }
 
-      if (rawUrls.length > 0) {
-        const { deduplicated, duplicatesRemoved } = deduplicateUrls(rawUrls);
-        commitUrlList(deduplicated, duplicatesRemoved);
-      } else {
-        if (looksLikeHtml(text)) {
-          if (looksLikeCloudflareChallenge(text)) {
-            setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
-          } else {
-            setError('The URL list returned an HTML page instead of plain text. Make sure you are using a raw text URL.');
-          }
-        } else {
-          setError('No valid Twitter/X or YouTube URLs found in the list');
-        }
-      }
-    } catch (err) {
-      if (requestId !== urlListRequestIdRef.current) {
-        return;
-      }
-
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-
-      // Provide more specific error messages
-      if (needsProxy && errorMessage.toLowerCase().includes('cloudflare')) {
-        setError('Pastebin is protected by Cloudflare and blocked the proxy. Please try again later or use a GitHub raw URL or Gist instead.');
-      } else if (needsProxy && errorMessage.toLowerCase().includes('html')) {
-        setError('A CORS proxy returned HTML instead of plain text. Make sure you are using a raw text URL, or try a GitHub raw URL or Gist instead.');
-      } else if (needsProxy && errorMessage.includes('All CORS proxies failed')) {
-        setError('All CORS proxies failed to load the URL. The services may be temporarily down. Please try again later or use a different URL source (GitHub, Gist).');
-      } else if (needsProxy) {
-        setError(`CORS proxy error: ${errorMessage}. Try using GitHub raw URLs or Gists instead.`);
-      } else {
-        setError(`Failed to load URL list: ${errorMessage}. Make sure the URL is accessible and contains valid Twitter/X URLs.`);
-      }
-
-      console.error('Failed to fetch URL list:', err);
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage('Link copied.');
+    } catch {
+      setShareMessage('Share was canceled.');
     } finally {
-      if (requestId === urlListRequestIdRef.current) {
-        setIsLoadingList(false);
-      }
-    }
-  }, [commitUrlList]);
-
-  const handleLoadExternalList = () => {
-    if (externalUrl.trim()) {
-      const url = externalUrl.trim();
-      fetchUrlList(url);
-
-      // Update browser URL without encoding
-      const baseUrl = window.location.origin + window.location.pathname;
-      const newUrl = `${baseUrl}?list=${url}`;
-      window.history.pushState({}, '', newUrl);
+      window.setTimeout(() => setShareMessage(''), 2400);
     }
   };
 
-  const handleLoadDemo = () => {
-    urlListRequestIdRef.current += 1;
-    const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-    commitUrlList(deduplicated, duplicatesRemoved);
-    setExternalUrl('');
-    setShowDemoOptions(false);
-
-    // Clear URL parameter
-    const baseUrl = window.location.origin + window.location.pathname;
-    window.history.pushState({}, '', baseUrl);
+  const handleInstall = async () => {
+    const installed = await installApp();
+    if (installed) {
+      setShareMessage('App installed.');
+      window.setTimeout(() => setShareMessage(''), 2400);
+    }
   };
-
-  const handleLoadDemoUrl = (demoUrl: string) => {
-    setExternalUrl(demoUrl);
-    fetchUrlList(demoUrl);
-    setShowDemoOptions(false);
-
-    // Update browser URL
-    const baseUrl = window.location.origin + window.location.pathname;
-    const newUrl = `${baseUrl}?list=${demoUrl}`;
-    window.history.pushState({}, '', newUrl);
-  };
-
-  // Demo URLs for testing
-  const demoUrls = [
-    {
-      name: "SpaceX Posts",
-      url: "https://raw.githubusercontent.com/p0n1/xfun/refs/heads/main/demo-lists/spacex.txt",
-      description: "Demo list with SpaceX tweets"
-    }
-  ];
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const listUrl = params.get('list');
-
-    if (listUrl) {
-      setExternalUrl(listUrl);
-      fetchUrlList(listUrl);
-    } else {
-      // Load default demo if no URL parameter
-      urlListRequestIdRef.current += 1;
-      const { deduplicated, duplicatesRemoved } = deduplicateUrls(DEMO_URLS);
-      commitUrlList(deduplicated, duplicatesRemoved);
-    }
-  }, [commitUrlList, fetchUrlList]);
-
-  const fetchBatch = useCallback(async (batchIndex: number, requestId: number): Promise<BatchFetchResult> => {
-    const startIndex = batchIndex * BATCH_SIZE;
-    const endIndex = Math.min(startIndex + BATCH_SIZE, urlList.length);
-    const batchUrls = urlList.slice(startIndex, endIndex);
-
-    if (batchUrls.length === 0) {
-      const isCurrentRequest = requestId === contentRequestIdRef.current;
-      if (isCurrentRequest) {
-        setHasMoreContent(false);
-      }
-      return {
-        applied: isCurrentRequest,
-        addedCount: 0,
-        hasMoreContent: false
-      };
-    }
-
-    try {
-      const promises = batchUrls.map(async (url): Promise<ContentItem> => {
-        const contentType = getContentType(url);
-
-        if (contentType === 'youtube') {
-          return {
-            type: 'youtube',
-            url,
-            id: url
-          };
-        } else if (contentType === 'twitter') {
-          const apiUrl = normalizeXUrl(url);
-          const response = await fetch(apiUrl);
-          const data: ApiResponse = await response.json();
-
-          if (data.code === 200) {
-            return {
-              type: 'twitter',
-              url,
-              data: data.tweet,
-              id: data.tweet.id
-            };
-          }
-          throw new Error(`Failed to fetch tweet: ${data.message}`);
-        }
-
-        throw new Error(`Unsupported content type for URL: ${url}`);
-      });
-
-      const results = await Promise.allSettled(promises);
-      if (requestId !== contentRequestIdRef.current) {
-        return {
-          applied: false,
-          addedCount: 0,
-          hasMoreContent: false
-        };
-      }
-
-      const successfulContent = results
-        .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
-        .map(result => result.value);
-
-      const failedCount = results.filter(result => result.status === 'rejected').length;
-      const existingIds = new Set(contentItemsRef.current.map(item => item.id));
-      const newContent = successfulContent.filter(item => !existingIds.has(item.id));
-      const addedCount = newContent.length;
-
-      if (addedCount > 0) {
-        const nextContentItems = [...contentItemsRef.current, ...newContent];
-        contentItemsRef.current = nextContentItems;
-        setContentItems(nextContentItems);
-      }
-
-      setLoadStats(prev => ({
-        ...prev,
-        successful: prev.successful + addedCount,
-        failed: prev.failed + failedCount
-      }));
-
-      const hasMoreContent = endIndex < urlList.length;
-      setHasMoreContent(hasMoreContent);
-      return {
-        applied: true,
-        addedCount,
-        hasMoreContent
-      };
-    } catch (err) {
-      if (requestId !== contentRequestIdRef.current) {
-        return {
-          applied: false,
-          addedCount: 0,
-          hasMoreContent: false
-        };
-      }
-
-      throw err;
-    }
-  }, [urlList]);
-
-  const loadMoreContent = useCallback(async () => {
-    if (isLoadingMore || !hasMoreContent) return;
-
-    const requestId = contentRequestIdRef.current;
-    setIsLoadingMore(true);
-    const nextBatch = currentBatch + 1;
-    try {
-      const result = await fetchBatch(nextBatch, requestId);
-      if (!result.applied || requestId !== contentRequestIdRef.current) {
-        return;
-      }
-      setCurrentBatch(nextBatch);
-    } catch (err) {
-      if (requestId === contentRequestIdRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch content');
-      }
-    } finally {
-      if (requestId === contentRequestIdRef.current) {
-        setIsLoadingMore(false);
-      }
-    }
-  }, [isLoadingMore, hasMoreContent, currentBatch, fetchBatch]);
-
-  useEffect(() => {
-    const requestId = contentRequestIdRef.current;
-
-    const initializeContent = async () => {
-      if (urlList.length === 0) {
-        if (requestId === contentRequestIdRef.current) {
-          setLoading(false);
-        }
-        return;
-      }
-
-      let batchIndex = 0;
-
-      try {
-        while (true) {
-          const result = await fetchBatch(batchIndex, requestId);
-          if (!result.applied || requestId !== contentRequestIdRef.current) {
-            return;
-          }
-
-          if (result.addedCount > 0) {
-            setCurrentBatch(batchIndex);
-            setLoading(false);
-            return;
-          }
-
-          if (!result.hasMoreContent) {
-            setCurrentBatch(batchIndex);
-            setLoading(false);
-            setError('Unable to load any posts from this list. Try another list or return to the demo.');
-            return;
-          }
-
-          batchIndex += 1;
-        }
-      } catch (err) {
-        if (requestId === contentRequestIdRef.current) {
-          setLoading(false);
-          setError(err instanceof Error ? err.message : 'Failed to fetch content');
-        }
-      }
-    };
-
-    initializeContent();
-  }, [urlList, fetchBatch]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (loading || isLoadingMore || !hasMoreContent) return;
-
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-
-      if (scrollTop + windowHeight >= documentHeight - 1000) {
-        loadMoreContent();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, isLoadingMore, hasMoreContent, loadMoreContent]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-4 shadow-lg">
-            <div className="flex gap-1">
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-            </div>
-            <span className="text-lg font-medium text-gray-700">Finding awesome posts...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-        <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <h1
-              className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center gap-2"
-              onClick={() => window.location.reload()}
-              title="Click to refresh and get new posts"
-            >
-              <Image
-                src="/icon.svg"
-                alt="X Fun Logo"
-                width={32}
-                height={32}
-                className="w-8 h-8"
-              />
-              X Fun
-            </h1>
-            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
-          </div>
-        </header>
-
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">😅</div>
-            <div className="text-xl text-red-500 mb-6">Error: {error}</div>
-            <button
-              onClick={handleLoadDemo}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium"
-            >
-              Return to Demo
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <header className="bg-gradient-to-r from-blue-400 to-purple-500 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="space-y-3">
-            <div className="text-center">
-              <h1
-                className="text-2xl sm:text-3xl font-bold text-white drop-shadow-sm cursor-pointer hover:text-blue-100 transition-colors flex items-center justify-center gap-2"
-                onClick={() => window.location.reload()}
-                title="Click to refresh and get new posts"
-              >
-                <Image
-                  src="/icon.svg"
-                  alt="X Fun Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8"
-                />
-                X Fun
-              </h1>
-              <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Fun and engaging content for curious minds</p>
-            </div>
-            <div className="flex justify-center gap-2">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30 transition-all hover:scale-105"
-                title="Refresh to get new posts"
-              >
-                🔄 Refresh
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowDemoOptions(!showDemoOptions)}
-                  className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
-                >
-                  {showDemoOptions ? 'Hide' : 'Try Examples'} ▼
-                </button>
-                {showDemoOptions && (
-                  <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg border z-10 w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
-                    <div className="p-3 border-b">
-                      <button
-                        onClick={handleLoadDemo}
-                        className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
-                      >
-                        <div className="font-medium">Default Demo</div>
-                        <div className="text-xs text-gray-500">Built-in example posts</div>
-                      </button>
-                    </div>
-                    <div className="p-2">
-                      <div className="text-xs text-gray-500 px-3 py-1 font-medium">Test External URLs:</div>
-                      {demoUrls.map((demo, index) => (
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.45),_transparent_28%),linear-gradient(180deg,_#f8fbff_0%,_#fdf8f2_48%,_#ffffff_100%)]">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-[8%] top-16 h-40 w-40 rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="absolute right-[12%] top-32 h-48 w-48 rounded-full bg-amber-200/35 blur-3xl" />
+        <div className="absolute bottom-16 left-1/3 h-44 w-44 rounded-full bg-fuchsia-200/25 blur-3xl" />
+      </div>
+
+      <main className="relative">
+        <section className="px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="rounded-[2.75rem] border border-white/70 bg-white/35 p-4 shadow-[0_30px_90px_rgba(148,163,184,0.16)] backdrop-blur-md sm:p-6 lg:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg">
+                    <Image
+                      src="/icon.svg"
+                      alt="X Fun"
+                      width={28}
+                      height={28}
+                      className="h-7 w-7"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                      X Fun
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Curated posts for curious kids.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <StatusPill tone={isOnline ? 'online' : 'offline'}>
+                    {isOnline ? 'Online' : 'Offline cache mode'}
+                  </StatusPill>
+                  {activeSource.kind === 'remote' ? (
+                    <StatusPill tone="accent">Shared list</StatusPill>
+                  ) : (
+                    <StatusPill>Built-in demo</StatusPill>
+                  )}
+                  {isStandalone ? (
+                    <StatusPill>Installed app</StatusPill>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-center">
+                <div className="max-w-2xl">
+                  <Reveal>
+                    <p className="text-sm font-semibold uppercase tracking-[0.26em] text-sky-700">
+                      Mixed media, quieter browsing
+                    </p>
+                    <h1 className="mt-4 max-w-xl text-4xl font-semibold leading-[1.02] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                      A calmer way to watch the most interesting corners of X.
+                    </h1>
+                    <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
+                      Load a public text file of X or YouTube links and let the browser
+                      play the photos and videos directly, without the noisy feed around
+                      them.
+                    </p>
+                  </Reveal>
+
+                  <Reveal className="mt-8">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">
+                          Public text-file URL
+                        </span>
+                        <input
+                          type="url"
+                          value={inputUrl}
+                          onChange={(event) => setInputUrl(event.target.value)}
+                          placeholder="https://raw.githubusercontent.com/.../list.txt"
+                          disabled={isLoadingList}
+                          className="w-full rounded-[1.5rem] border border-slate-200 bg-white/80 px-5 py-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        />
+                      </label>
+
+                      <div className="flex flex-wrap gap-3">
                         <button
-                          key={index}
-                          onClick={() => handleLoadDemoUrl(demo.url)}
-                          className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-gray-900"
+                          type="submit"
+                          disabled={!inputUrl.trim() || isLoadingList}
+                          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                         >
-                          <div className="font-medium text-sm">{demo.name}</div>
-                          <div className="text-xs text-gray-500">{demo.description}</div>
-                          <div className="text-xs text-blue-600 break-all mt-1">{demo.url}</div>
+                          {isLoadingList ? 'Loading list...' : 'Load list'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={loadDemo}
+                          className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          Built-in demo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShare}
+                          className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          Share this view
+                        </button>
+                        {canInstall ? (
+                          <button
+                            type="button"
+                            onClick={handleInstall}
+                            className="rounded-full border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                          >
+                            Install app
+                          </button>
+                        ) : null}
+                      </div>
+                    </form>
+
+                    {shareMessage ? (
+                      <p className="mt-3 text-sm text-sky-700">{shareMessage}</p>
+                    ) : null}
+                  </Reveal>
+
+                  <Reveal className="mt-8">
+                    <div className="flex flex-wrap gap-3">
+                      {demoLists.map((demo) => (
+                        <button
+                          key={demo.url}
+                          type="button"
+                          onClick={() => void loadDemoListUrl(demo.url)}
+                          className="group rounded-[1.5rem] border border-white/70 bg-white/65 px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
+                        >
+                          <p className="text-sm font-semibold text-slate-900">
+                            {demo.name}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {demo.description}
+                          </p>
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
+                  </Reveal>
+                </div>
+
+                <Reveal>
+                  <HeroPreview images={previewMedia} />
+                </Reveal>
               </div>
-              <button
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                className="px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 font-medium text-sm border border-white/30"
-              >
-                {showUrlInput ? 'Hide' : 'Custom List'}
-              </button>
             </div>
           </div>
+        </section>
 
-          {showUrlInput && (
-            <div className="mt-4 space-y-3">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="url"
-                  value={externalUrl}
-                  onChange={(e) => setExternalUrl(e.target.value)}
-                  placeholder="Enter URL to plain text list (e.g., GitHub raw URL)"
-                  className="flex-1 px-3 py-2 rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent text-gray-900 text-sm"
-                  disabled={isLoadingList}
-                />
+        <section className="px-4 pb-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <Reveal>
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-[0_18px_70px_rgba(148,163,184,0.12)] backdrop-blur-sm sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                        Current list
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-slate-900">
+                        {activeSource.kind === 'remote'
+                          ? 'Loaded from a shared text file'
+                          : 'Loaded from the built-in demo feed'}
+                      </p>
+                    </div>
+                    <StatusPill tone="accent">
+                      {stats.total} item{stats.total === 1 ? '' : 's'}
+                    </StatusPill>
+                  </div>
+
+                  <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                    <p className="break-all">
+                      {activeSource.kind === 'remote' && activeSource.url
+                        ? activeSource.url
+                        : 'The demo feed mixes X posts and YouTube videos so you can test photos, quotes, and inline playback quickly.'}
+                    </p>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-500"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                      <span>{stats.successful} loaded</span>
+                      <span>{stats.failed} failed</span>
+                      <span>{duplicatesRemoved} duplicates removed</span>
+                      <span>{progressPercent}% processed</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-[0_18px_70px_rgba(148,163,184,0.12)] backdrop-blur-sm sm:p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                    Notes
+                  </p>
+                  <details className="mt-3 group">
+                    <summary className="cursor-pointer list-none text-base font-semibold text-slate-900">
+                      Supported sources and troubleshooting
+                    </summary>
+                    <div className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+                      <p>
+                        Use GitHub raw URLs, public gists, or public Pastebin links.
+                        The app requests everything from the browser, not the server.
+                      </p>
+                      <p>
+                        One supported URL per line. Inline comments are fine after the
+                        URL. `twitter.com` links are normalized to `x.com` automatically.
+                      </p>
+                      <p>
+                        If a list fails to load, verify that the source is public and
+                        returns plain text instead of an HTML landing page.
+                      </p>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </Reveal>
+
+            {listError ? (
+              <Reveal className="mt-4">
+                <div className="rounded-[2rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm leading-6 text-rose-700">
+                  {listError}
+                </div>
+              </Reveal>
+            ) : null}
+
+            {feedError ? (
+              <Reveal className="mt-4">
+                <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-800">
+                  {feedError}
+                </div>
+              </Reveal>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="px-4 pb-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+                  Feed
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950 sm:text-3xl">
+                  A continuous stream, in the order you picked it.
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-slate-500">
+                Photos enlarge in place, videos play inline, and original X links stay
+                behind a deliberate extra step.
+              </p>
+            </div>
+
+            {isInitialLoading ? (
+              <div className="grid gap-5">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/70 p-6 shadow-[0_18px_70px_rgba(148,163,184,0.12)]"
+                  >
+                    <div className="h-5 w-28 animate-pulse rounded-full bg-slate-100" />
+                    <div className="mt-4 h-8 w-3/4 animate-pulse rounded-full bg-slate-100" />
+                    <div className="mt-3 h-40 animate-pulse rounded-[1.5rem] bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="grid gap-5">
+              {items.map((item) => (
+                <Reveal key={item.id}>
+                  {item.kind === 'x' ? (
+                    <XPostCard item={item} />
+                  ) : (
+                    <YouTubeCard item={item} />
+                  )}
+                </Reveal>
+              ))}
+            </div>
+
+            {!isInitialLoading && items.length === 0 && !listError && !feedError ? (
+              <div className="rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 text-center text-slate-500 shadow-[0_18px_70px_rgba(148,163,184,0.12)]">
+                No supported posts were loaded yet.
+              </div>
+            ) : null}
+
+            {isLoadingMore ? (
+              <div className="flex justify-center py-8">
+                <div className="rounded-full border border-white/70 bg-white/80 px-5 py-3 text-sm text-slate-600 shadow-sm">
+                  Loading more from the list...
+                </div>
+              </div>
+            ) : null}
+
+            {!isInitialLoading && !isLoadingMore && hasMoreContent && items.length > 0 ? (
+              <div className="flex justify-center py-10">
                 <button
-                  onClick={handleLoadExternalList}
-                  disabled={!externalUrl.trim() || isLoadingList}
-                  className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm whitespace-nowrap"
+                  type="button"
+                  onClick={() => void loadMore()}
+                  className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                 >
-                  {isLoadingList ? 'Loading...' : 'Load List'}
+                  Load more
                 </button>
               </div>
-              <div className="bg-white/10 rounded-lg p-3 text-white text-sm">
-                <p className="font-medium mb-2">📝 Supported Services:</p>
-                <ul className="space-y-1 text-white/90">
-                  <li>• <strong>GitHub:</strong> Create a public repo → Upload .txt file → Use raw URL</li>
-                  <li>• <strong>GitHub Gist:</strong> Create public gist → Use raw URL</li>
-                  <li>• <strong>Pastebin:</strong> Any public paste URL (uses multiple CORS proxies with fallback)</li>
-                </ul>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>Format:</strong> One URL per line, comments allowed after URLs. Check examples above for working URLs.
+            ) : null}
+          </div>
+        </section>
+
+        <footer className="px-4 pb-12 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl rounded-[2rem] border border-white/70 bg-white/75 px-6 py-5 shadow-[0_18px_70px_rgba(148,163,184,0.12)] backdrop-blur-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-900">
+                  Keep a simple public list, share the URL, and the browser does the rest.
                 </p>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>💡 Troubleshooting:</strong> If your list fails to load, test CORS support at{' '}
-                  <a
-                    href="https://cors-test.codehappy.dev/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white underline hover:text-blue-200"
-                  >
-                    cors-test.codehappy.dev
-                  </a>
+                <p className="mt-1 text-sm text-slate-500">
+                  Cached items remain available when the connection drops.
                 </p>
-                <p className="mt-2 text-white/80 text-xs">
-                  <strong>🔗 Source Code:</strong>{' '}
-                  <a
-                    href="https://github.com/p0n1/xfun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white underline hover:text-blue-200"
-                  >
-                    github.com/p0n1/xfun
-                  </a>
-                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href="https://github.com/p0n1/xfun"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Source code
+                </a>
+                {!canInstall && !isStandalone ? (
+                  <StatusPill>{isOnline ? 'Install from your browser menu' : 'Offline-ready'}</StatusPill>
+                ) : null}
               </div>
             </div>
-          )}
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {!loading && loadStats.total > 0 && (
-          <div className="mb-6">
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 transition-colors select-none">
-                <span className="inline-flex items-center gap-1">
-                  <span className="text-[10px]">ℹ️</span>
-                  <span>Details</span>
-                  <span className="text-[10px] group-open:rotate-180 transition-transform">▼</span>
-                </span>
-              </summary>
-              <div className="mt-2 text-xs text-gray-500 space-y-1 pl-3 border-l-2 border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                  <span>📋 {loadStats.total} URLs in current list</span>
-                  <span className="text-green-600">✓ {loadStats.successful} successfully loaded</span>
-                  {loadStats.failed > 0 && (
-                    <span className="text-red-500">✗ {loadStats.failed} failed to load</span>
-                  )}
-                  {loadStats.duplicatesRemoved > 0 && (
-                    <span className="text-orange-500">⚡ {loadStats.duplicatesRemoved} duplicates filtered</span>
-                  )}
-                </div>
-                {externalUrl && (
-                  <div className="text-blue-600 break-all">
-                    <span className="text-gray-500">🔗 Source:</span> {externalUrl}
-                  </div>
-                )}
-                {!externalUrl && (
-                  <div className="text-gray-400">
-                    <span className="text-gray-500">🔗 Source:</span> Built-in demo list
-                  </div>
-                )}
-                <div className="text-gray-400">
-                  <span className="text-gray-500">⏱️ Load progress:</span> {Math.round((loadStats.successful + loadStats.failed) / loadStats.total * 100)}% complete
-                </div>
-                <div className="text-gray-400">
-                  <span className="text-gray-500">🔗 Source code:</span>{' '}
-                  <a
-                    href="https://github.com/p0n1/xfun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-700 underline"
-                  >
-                    github.com/p0n1/xfun
-                  </a>
-                </div>
-              </div>
-            </details>
           </div>
-        )}
-
-        <div className="space-y-6">
-          {contentItems.map((item) => {
-            if (item.type === 'youtube') {
-              return <YouTubeCard key={item.id} url={item.url} />;
-            } else if (item.type === 'twitter' && item.data) {
-              return <XPostCard key={item.id} tweet={item.data} />;
-            }
-            return null;
-          })}
-        </div>
-
-        {isLoadingMore && (
-          <div className="flex items-center justify-center py-8">
-            <div className="inline-flex items-center gap-3 bg-white rounded-full px-5 py-3 shadow-md border border-gray-100">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></div>
-                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></div>
-              </div>
-              <span className="text-base font-medium text-gray-600">Getting more fun posts...</span>
-            </div>
-          </div>
-        )}
-
-        {!loading && !isLoadingMore && hasMoreContent && contentItems.length > 0 && (
-          <div className="flex items-center justify-center py-8">
-            <button
-              onClick={loadMoreContent}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
-            >
-              Load More Content
-            </button>
-          </div>
-        )}
-
-        {!loading && !hasMoreContent && contentItems.length > 0 && (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-gray-500">🎉 All content loaded!</div>
-          </div>
-        )}
+        </footer>
       </main>
+
       <ScrollToTop />
     </div>
   );
