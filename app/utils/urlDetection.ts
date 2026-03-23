@@ -4,6 +4,8 @@ const YOUTUBE_WATCH_REGEX =
   /^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:.*?&)?v=([A-Za-z0-9_-]{11})(?:[&#].*)?$/i;
 const YOUTUBE_SHORT_REGEX =
   /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})(?:[?&#].*)?$/i;
+const YOUTUBE_IN_TEXT_REGEX =
+  /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^\s#]*&)?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
 
 export function isXUrl(url: string): boolean {
   return X_STATUS_REGEX.test(url);
@@ -35,7 +37,12 @@ export function extractYouTubeVideoId(url: string): string | null {
   }
 
   const shortMatch = url.match(YOUTUBE_SHORT_REGEX);
-  return shortMatch ? shortMatch[1] : null;
+  if (shortMatch) {
+    return shortMatch[1];
+  }
+
+  const inTextMatch = url.match(YOUTUBE_IN_TEXT_REGEX);
+  return inTextMatch ? inTextMatch[1] : null;
 }
 
 export function normalizeXCanonicalUrl(url: string): string {

@@ -52,14 +52,12 @@ export function usePwaState() {
       return false;
     }
 
-    await deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    if (choice.outcome === 'accepted') {
-      setDeferredPrompt(null);
-      return true;
-    }
+    const prompt = deferredPrompt;
+    setDeferredPrompt(null);
 
-    return false;
+    await prompt.prompt();
+    const choice = await prompt.userChoice;
+    return choice.outcome === 'accepted';
   };
 
   return {
