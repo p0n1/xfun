@@ -1,6 +1,5 @@
 'use client';
 
-import { YouTubeEmbed } from '@next/third-parties/google';
 import type { YouTubeItem } from '../lib/content';
 
 interface YouTubeCardProps {
@@ -33,11 +32,14 @@ export default function YouTubeCard({ item }: YouTubeCardProps) {
       ) : null}
 
       <div className="mt-5 overflow-hidden rounded-[1.75rem] bg-slate-950 shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
-        <div className="aspect-video w-full">
-          <YouTubeEmbed
-            videoid={item.videoId}
-            params="controls=1&modestbranding=1&rel=0"
-            style="width: 100%; height: 100%; margin: 0 auto; display: block;"
+        <div className="relative aspect-video w-full">
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${item.videoId}?controls=1&modestbranding=1&rel=0`}
+            title={item.metadata?.title ?? 'YouTube video'}
+            className="absolute inset-0 h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
           />
         </div>
       </div>
