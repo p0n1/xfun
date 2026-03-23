@@ -22,6 +22,10 @@ interface LoadResult {
   activeSource: ActiveSource;
 }
 
+interface LoadRemoteListOptions {
+  historyMode?: 'push' | 'replace' | 'skip';
+}
+
 const DEMO_SOURCE: ActiveSource = {
   kind: 'demo',
   label: 'Built-in demo',
@@ -76,9 +80,13 @@ export function useListSource() {
   }, [commitLoad]);
 
   const loadRemoteList = useCallback(
-    async (listUrl: string) => {
+    async (
+      listUrl: string,
+      options: LoadRemoteListOptions = {},
+    ) => {
       const requestId = ++requestIdRef.current;
       const trimmedUrl = listUrl.trim();
+      const historyMode = options.historyMode ?? 'push';
       setInputUrl(trimmedUrl);
       clearPendingLoad({
         kind: 'remote',
@@ -103,7 +111,11 @@ export function useListSource() {
         });
 
         setInputUrl(result.normalizedListUrl);
-        window.history.pushState({}, '', buildListUrl(result.normalizedListUrl));
+        if (historyMode === 'replace') {
+          window.history.replaceState({}, '', buildListUrl(result.normalizedListUrl));
+        } else if (historyMode === 'push') {
+          window.history.pushState({}, '', buildListUrl(result.normalizedListUrl));
+        }
       } catch (loadError) {
         if (requestId !== requestIdRef.current) {
           return;
@@ -133,7 +145,7 @@ export function useListSource() {
     const initialListUrl = params.get('list');
     const timerId = window.setTimeout(() => {
       if (initialListUrl) {
-        void loadRemoteList(initialListUrl);
+        void loadRemoteList(initialListUrl, { historyMode: 'replace' });
         return;
       }
 

@@ -231,7 +231,7 @@ export default function Home() {
               ))}
             </div>
 
-            {!isInitialLoading && items.length === 0 && !listError && !feedError ? (
+            {!isLoadingList && !isInitialLoading && items.length === 0 && !listError && !feedError ? (
               <div className="rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 text-center text-slate-500 shadow-[0_18px_70px_rgba(148,163,184,0.12)]">
                 No supported posts were loaded yet.
               </div>
