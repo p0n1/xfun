@@ -35,6 +35,10 @@ function getPhotoGridClass(photoCount: number) {
     return 'grid-cols-1';
   }
 
+  if (photoCount === 3) {
+    return 'grid-cols-2 md:grid-cols-3';
+  }
+
   if (photoCount === 4) {
     return 'grid-cols-2';
   }
@@ -46,9 +50,25 @@ function getPhotoGridClass(photoCount: number) {
   return 'grid-cols-2 md:grid-cols-3';
 }
 
-function getPhotoFrameClass(photoCount: number) {
+function getPhotoTileClass(photoCount: number, index: number) {
+  if (photoCount === 3 && index === 0) {
+    return 'col-span-2 md:col-span-1';
+  }
+
+  return '';
+}
+
+function getPhotoFrameClass(photoCount: number, index: number) {
   if (photoCount === 1) {
     return 'aspect-[4/5] sm:aspect-[16/10]';
+  }
+
+  if (photoCount === 3) {
+    if (index === 0) {
+      return 'aspect-[16/10] md:aspect-[4/3]';
+    }
+
+    return 'aspect-square md:aspect-[4/3]';
   }
 
   if (photoCount === 4) {
@@ -58,9 +78,17 @@ function getPhotoFrameClass(photoCount: number) {
   return 'aspect-[4/5] sm:aspect-[4/3]';
 }
 
-function getPhotoSizes(photoCount: number) {
+function getPhotoSizes(photoCount: number, index: number) {
   if (photoCount === 1) {
     return '(min-width: 1024px) 52rem, 100vw';
+  }
+
+  if (photoCount === 3) {
+    if (index === 0) {
+      return '(min-width: 768px) 32vw, 100vw';
+    }
+
+    return '(min-width: 768px) 32vw, 50vw';
   }
 
   if (photoCount === 4 || photoCount === 2) {
@@ -145,20 +173,21 @@ function MediaGallery({
 
       {photos.length > 0 ? (
         <div className={`grid gap-3 ${getPhotoGridClass(photos.length)}`}>
-          {photos.map((photo) => (
+          {photos.map((photo, index) => (
             <button
               key={photo.url}
               type="button"
               onClick={() => openGallery(photo.url)}
-              className={`group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left ${getPhotoFrameClass(
+              className={`group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left ${getPhotoTileClass(
                 photos.length,
-              )}`}
+                index,
+              )} ${getPhotoFrameClass(photos.length, index)}`}
             >
               <Image
                 src={photo.url}
                 alt="Post image"
                 fill
-                sizes={getPhotoSizes(photos.length)}
+                sizes={getPhotoSizes(photos.length, index)}
                 className="object-cover transition duration-500 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/15 to-transparent opacity-0 transition group-hover:opacity-100" />
