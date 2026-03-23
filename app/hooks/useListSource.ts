@@ -22,6 +22,11 @@ interface LoadResult {
   activeSource: ActiveSource;
 }
 
+const DEMO_SOURCE: ActiveSource = {
+  kind: 'demo',
+  label: 'Built-in demo',
+};
+
 function buildListUrl(listUrl?: string): string {
   const baseUrl = window.location.origin + window.location.pathname;
   if (!listUrl) {
@@ -38,10 +43,7 @@ export function useListSource() {
   const [inputUrl, setInputUrl] = useState('');
   const [urls, setUrls] = useState<string[]>([]);
   const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
-  const [activeSource, setActiveSource] = useState<ActiveSource>({
-    kind: 'demo',
-    label: 'Built-in demo',
-  });
+  const [activeSource, setActiveSource] = useState<ActiveSource>(DEMO_SOURCE);
 
   const commitLoad = useCallback((result: LoadResult) => {
     setUrls(result.urls);
@@ -51,6 +53,14 @@ export function useListSource() {
     setStatus('loaded');
   }, []);
 
+  const clearPendingLoad = useCallback((nextSource: ActiveSource) => {
+    setUrls([]);
+    setDuplicatesRemoved(0);
+    setActiveSource(nextSource);
+    setError(null);
+    setStatus('loading');
+  }, []);
+
   const loadDemo = useCallback(() => {
     requestIdRef.current += 1;
     const deduplicated = deduplicateUrls(DEMO_URLS);
@@ -58,10 +68,7 @@ export function useListSource() {
     commitLoad({
       urls: deduplicated.urls,
       duplicatesRemoved: deduplicated.duplicatesRemoved,
-      activeSource: {
-        kind: 'demo',
-        label: 'Built-in demo',
-      },
+      activeSource: DEMO_SOURCE,
     });
 
     setInputUrl('');
@@ -71,9 +78,13 @@ export function useListSource() {
   const loadRemoteList = useCallback(
     async (listUrl: string) => {
       const requestId = ++requestIdRef.current;
-      setInputUrl(listUrl.trim());
-      setStatus('loading');
-      setError(null);
+      const trimmedUrl = listUrl.trim();
+      setInputUrl(trimmedUrl);
+      clearPendingLoad({
+        kind: 'remote',
+        label: trimmedUrl,
+        url: trimmedUrl,
+      });
 
       try {
         const result = await loadUrlList(listUrl);
@@ -106,7 +117,7 @@ export function useListSource() {
         );
       }
     },
-    [commitLoad],
+    [clearPendingLoad, commitLoad],
   );
 
   const loadDemoListUrl = useCallback(
