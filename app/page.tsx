@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import Image from 'next/image';
+import ListLoadingPanel from './components/ListLoadingPanel';
 import Reveal from './components/Reveal';
 import ScrollToTop from './components/ScrollToTop';
 import XPostCard from './components/XPostCard';
@@ -18,6 +19,7 @@ export default function Home() {
     error: listError,
     inputUrl,
     isLoading: isLoadingList,
+    loadingProgress,
     setInputUrl,
     urls,
     loadDemo,
@@ -38,8 +40,19 @@ export default function Home() {
   const [installMessage, setInstallMessage] = useState('');
 
   const processedCount = stats.successful + stats.failed;
-  const progressPercent =
+  const feedProgressPercent =
     stats.total > 0 ? Math.round((processedCount / stats.total) * 100) : 0;
+  const headerProgressPercent = isLoadingList
+    ? loadingProgress?.progressPercent ?? 8
+    : feedProgressPercent;
+  const currentStatusHeadline = isLoadingList
+    ? loadingProgress?.headline ?? 'Preparing your list'
+    : activeSource.kind === 'remote' && activeSource.url
+      ? activeSource.url
+      : 'Built-in demo list';
+  const currentStatusDetail = isLoadingList
+    ? loadingProgress?.detail ?? 'Checking the source and getting links ready.'
+    : 'Use GitHub raw URLs, public gists, or public Pastebin links. One supported URL per line, with inline comments allowed after each URL.';
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -159,28 +172,44 @@ export default function Home() {
                 Details
               </summary>
               <div className="mt-3 space-y-3 rounded-[1.5rem] border border-slate-100 bg-slate-50/80 px-4 py-4 text-left text-sm leading-6 text-slate-600">
-                <p>
-                  {activeSource.kind === 'remote' && activeSource.url
-                    ? activeSource.url
-                    : 'Built-in demo list'}
-                </p>
+                <p>{currentStatusHeadline}</p>
                 <div className="h-2 overflow-hidden rounded-full bg-white">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
+                    style={{ width: `${headerProgressPercent}%` }}
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-1">
-                  <span>{stats.successful} loaded</span>
-                  <span>{stats.failed} failed</span>
-                  <span>{duplicatesRemoved} duplicates removed</span>
-                  <span>{progressPercent}% processed</span>
+                  {isLoadingList ? (
+                    <>
+                      <span>{headerProgressPercent}% ready</span>
+                      <span>
+                        {loadingProgress?.usesProxy
+                          ? 'Using proxy bridge services'
+                          : 'Using a direct browser request'}
+                      </span>
+                      {loadingProgress?.proxyAttempts.length ? (
+                        <span>
+                          {
+                            loadingProgress.proxyAttempts.filter(
+                              (attempt) => attempt.status === 'failed',
+                            ).length
+                          }{' '}
+                          retries so far
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <span>{stats.successful} loaded</span>
+                      <span>{stats.failed} failed</span>
+                      <span>{duplicatesRemoved} duplicates removed</span>
+                      <span>{feedProgressPercent}% processed</span>
+                    </>
+                  )}
                   {!isOnline ? <span>Offline cache mode</span> : null}
                 </div>
-                <p>
-                  Use GitHub raw URLs, public gists, or public Pastebin links. One
-                  supported URL per line, with inline comments allowed after each URL.
-                </p>
+                <p>{currentStatusDetail}</p>
               </div>
             </details>
           </div>
@@ -204,6 +233,13 @@ export default function Home() {
 
         <section className="px-4 pb-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-6xl">
+            {isLoadingList ? (
+              <ListLoadingPanel
+                progress={loadingProgress}
+                sourceLabel={activeSource.url ?? activeSource.label}
+              />
+            ) : null}
+
             {isInitialLoading ? (
               <div className="grid gap-5">
                 {Array.from({ length: 3 }).map((_, index) => (

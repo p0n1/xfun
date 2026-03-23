@@ -5,6 +5,7 @@ import {
   DEMO_LISTS,
   DEMO_URLS,
   deduplicateUrls,
+  type ListLoadProgress,
   loadUrlList,
 } from '../lib/content';
 
@@ -48,11 +49,15 @@ export function useListSource() {
   const [urls, setUrls] = useState<string[]>([]);
   const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
   const [activeSource, setActiveSource] = useState<ActiveSource>(DEMO_SOURCE);
+  const [loadingProgress, setLoadingProgress] = useState<ListLoadProgress | null>(
+    null,
+  );
 
   const commitLoad = useCallback((result: LoadResult) => {
     setUrls(result.urls);
     setDuplicatesRemoved(result.duplicatesRemoved);
     setActiveSource(result.activeSource);
+    setLoadingProgress(null);
     setError(null);
     setStatus('loaded');
   }, []);
@@ -61,6 +66,7 @@ export function useListSource() {
     setUrls([]);
     setDuplicatesRemoved(0);
     setActiveSource(nextSource);
+    setLoadingProgress(null);
     setError(null);
     setStatus('loading');
   }, []);
@@ -76,6 +82,7 @@ export function useListSource() {
     });
 
     setInputUrl('');
+    setLoadingProgress(null);
     window.history.pushState({}, '', buildListUrl());
   }, [commitLoad]);
 
@@ -95,7 +102,13 @@ export function useListSource() {
       });
 
       try {
-        const result = await loadUrlList(listUrl);
+        const result = await loadUrlList(listUrl, {
+          onProgress: (nextProgress) => {
+            if (requestId === requestIdRef.current) {
+              setLoadingProgress(nextProgress);
+            }
+          },
+        });
         if (requestId !== requestIdRef.current) {
           return;
         }
@@ -121,6 +134,7 @@ export function useListSource() {
           return;
         }
 
+        setLoadingProgress(null);
         setStatus('error');
         setError(
           loadError instanceof Error
@@ -162,6 +176,7 @@ export function useListSource() {
     error,
     inputUrl,
     isLoading: status === 'loading',
+    loadingProgress,
     setInputUrl,
     status,
     urls,

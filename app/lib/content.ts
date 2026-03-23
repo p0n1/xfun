@@ -61,6 +61,33 @@ export const DEMO_LISTS = [
 
 export const BATCH_SIZE = 3;
 
+export type ListLoadStage =
+  | 'preparing'
+  | 'fetching'
+  | 'proxying'
+  | 'parsing'
+  | 'ready';
+
+export type ListProxyAttemptStatus =
+  | 'pending'
+  | 'active'
+  | 'failed'
+  | 'success';
+
+export interface ListProxyAttempt {
+  name: string;
+  status: ListProxyAttemptStatus;
+}
+
+export interface ListLoadProgress {
+  stage: ListLoadStage;
+  headline: string;
+  detail: string;
+  progressPercent: number;
+  usesProxy: boolean;
+  proxyAttempts: ListProxyAttempt[];
+}
+
 export interface XPhoto {
   url: string;
   width: number;
@@ -167,6 +194,34 @@ interface RawFxResponse {
   tweet: RawFxTweet;
 }
 
+interface LoadUrlListOptions {
+  onProgress?: (progress: ListLoadProgress) => void;
+}
+
+interface ProxyDefinition {
+  name: string;
+  url: string;
+  extractContent: (response: string) => string;
+}
+
+function emitListLoadProgress(
+  onProgress: LoadUrlListOptions['onProgress'],
+  progress: ListLoadProgress,
+) {
+  onProgress?.({
+    ...progress,
+    proxyAttempts: progress.proxyAttempts.map((attempt) => ({ ...attempt })),
+  });
+}
+
+function getHostnameLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 function looksLikeHtml(content: string): boolean {
   const trimmed = content.trim().toLowerCase();
   if (!trimmed) return false;
@@ -239,8 +294,11 @@ export function parseUrlList(text: string): string[] {
     .filter((url): url is string => Boolean(url));
 }
 
-async function fetchWithCorsProxy(url: string): Promise<string> {
-  const proxies = [
+async function fetchWithCorsProxy(
+  url: string,
+  onProgress?: LoadUrlListOptions['onProgress'],
+): Promise<string> {
+  const proxies: ProxyDefinition[] = [
     {
       name: 'allorigins',
       url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
@@ -260,10 +318,27 @@ async function fetchWithCorsProxy(url: string): Promise<string> {
       extractContent: (response: string) => response,
     },
   ];
+  const proxyAttempts: ListProxyAttempt[] = proxies.map((proxy) => ({
+    name: proxy.name,
+    status: 'pending',
+  }));
 
   let lastError: Error | null = null;
 
-  for (const proxy of proxies) {
+  for (const [index, proxy] of proxies.entries()) {
+    proxyAttempts[index] = {
+      name: proxy.name,
+      status: 'active',
+    };
+    emitListLoadProgress(onProgress, {
+      stage: 'proxying',
+      headline: `Trying ${proxy.name}`,
+      detail: `Proxy bridge ${index + 1} of ${proxies.length} is requesting ${getHostnameLabel(url)}.`,
+      progressPercent: 24 + index * 14,
+      usesProxy: true,
+      proxyAttempts,
+    });
+
     try {
       const response = await fetch(proxy.url);
       if (!response.ok) {
@@ -281,10 +356,40 @@ async function fetchWithCorsProxy(url: string): Promise<string> {
         throw new Error('Received HTML instead of plain text');
       }
 
+      proxyAttempts[index] = {
+        name: proxy.name,
+        status: 'success',
+      };
+      emitListLoadProgress(onProgress, {
+        stage: 'parsing',
+        headline: 'List text received',
+        detail: `The file came through ${proxy.name}. Extracting supported post links now.`,
+        progressPercent: 76,
+        usesProxy: true,
+        proxyAttempts,
+      });
       return content;
     } catch (error) {
+      proxyAttempts[index] = {
+        name: proxy.name,
+        status: 'failed',
+      };
       lastError =
         error instanceof Error ? error : new Error('Unknown CORS proxy error');
+
+      const nextProxy = proxies[index + 1];
+      emitListLoadProgress(onProgress, {
+        stage: 'proxying',
+        headline: nextProxy
+          ? `${proxy.name} failed. Retrying with ${nextProxy.name}.`
+          : `${proxy.name} failed.`,
+        detail: nextProxy
+          ? `Moving to proxy bridge ${index + 2} of ${proxies.length}.`
+          : 'All available proxy bridges have been tried.',
+        progressPercent: 32 + index * 14,
+        usesProxy: true,
+        proxyAttempts,
+      });
     }
   }
 
@@ -310,26 +415,65 @@ function formatListFetchError(originalUrl: string, message: string): string {
   return `Failed to load the list: ${message}`;
 }
 
-export async function loadUrlList(listUrl: string): Promise<{
+export async function loadUrlList(
+  listUrl: string,
+  options: LoadUrlListOptions = {},
+): Promise<{
   urls: string[];
   duplicatesRemoved: number;
   normalizedListUrl: string;
 }> {
   const normalizedListUrl = normalizeListSourceUrl(listUrl.trim());
   const usesProxy = isPastebinUrl(normalizedListUrl);
+  const hostname = getHostnameLabel(normalizedListUrl);
+  const { onProgress } = options;
+
+  emitListLoadProgress(onProgress, {
+    stage: 'preparing',
+    headline: 'Preparing your list',
+    detail: `Checking ${hostname} and setting up the request.`,
+    progressPercent: 8,
+    usesProxy,
+    proxyAttempts: [],
+  });
 
   try {
     let text: string;
 
     if (usesProxy) {
-      text = await fetchWithCorsProxy(normalizedListUrl);
+      emitListLoadProgress(onProgress, {
+        stage: 'fetching',
+        headline: 'Opening the list through a bridge',
+        detail:
+          'This source often blocks direct browser reads, so the app is trying public proxy services.',
+        progressPercent: 16,
+        usesProxy: true,
+        proxyAttempts: [],
+      });
+      text = await fetchWithCorsProxy(normalizedListUrl, onProgress);
     } else {
+      emitListLoadProgress(onProgress, {
+        stage: 'fetching',
+        headline: 'Fetching the text list',
+        detail: `Requesting the file directly from ${hostname}.`,
+        progressPercent: 26,
+        usesProxy: false,
+        proxyAttempts: [],
+      });
       const response = await fetch(normalizedListUrl);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       text = await response.text();
+      emitListLoadProgress(onProgress, {
+        stage: 'parsing',
+        headline: 'List text received',
+        detail: 'Scanning the file for supported X/Twitter and YouTube links.',
+        progressPercent: 74,
+        usesProxy: false,
+        proxyAttempts: [],
+      });
     }
 
     const urls = parseUrlList(text);
@@ -351,6 +495,20 @@ export async function loadUrlList(listUrl: string): Promise<{
     }
 
     const deduplicated = deduplicateUrls(urls);
+    const postCount = deduplicated.urls.length;
+    const duplicateLabel =
+      deduplicated.duplicatesRemoved > 0
+        ? ` Removed ${deduplicated.duplicatesRemoved} duplicates.`
+        : '';
+
+    emitListLoadProgress(onProgress, {
+      stage: 'ready',
+      headline: `Found ${postCount} supported ${postCount === 1 ? 'post' : 'posts'}`,
+      detail: `Starting to load the first batch now.${duplicateLabel}`,
+      progressPercent: 100,
+      usesProxy,
+      proxyAttempts: [],
+    });
 
     return {
       urls: deduplicated.urls,
