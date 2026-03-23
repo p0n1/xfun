@@ -71,6 +71,7 @@ export function useListSource() {
   const loadRemoteList = useCallback(
     async (listUrl: string) => {
       const requestId = ++requestIdRef.current;
+      setInputUrl(listUrl.trim());
       setStatus('loading');
       setError(null);
 
@@ -119,14 +120,16 @@ export function useListSource() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialListUrl = params.get('list');
+    const timerId = window.setTimeout(() => {
+      if (initialListUrl) {
+        void loadRemoteList(initialListUrl);
+        return;
+      }
 
-    if (initialListUrl) {
-      setInputUrl(initialListUrl);
-      void loadRemoteList(initialListUrl);
-      return;
-    }
+      loadDemo();
+    }, 0);
 
-    loadDemo();
+    return () => window.clearTimeout(timerId);
   }, [loadDemo, loadRemoteList]);
 
   return {
