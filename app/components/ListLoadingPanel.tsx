@@ -77,7 +77,7 @@ export default function ListLoadingPanel({
     {
       label: current.usesProxy ? 'Bridge' : 'Fetch',
       description: current.usesProxy
-        ? 'Try public proxy services'
+        ? 'Try best-effort public bridges'
         : 'Download the text file',
       state: getStepState(current.stage, 1),
     },
@@ -115,7 +115,9 @@ export default function ListLoadingPanel({
           <div className="mt-6">
             <div className="flex items-center justify-between gap-4 text-sm font-medium text-slate-500">
               <span>
-                {current.usesProxy ? 'Proxy-assisted request' : 'Direct browser request'}
+                {current.usesProxy
+                  ? 'Best-effort proxy request'
+                  : 'Direct browser request'}
               </span>
               <span>{progressPercent}%</span>
             </div>

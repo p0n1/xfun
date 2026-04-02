@@ -52,7 +52,7 @@ export default function Home() {
       : 'Built-in demo list';
   const currentStatusDetail = isLoadingList
     ? loadingProgress?.detail ?? 'Checking the source and getting links ready.'
-    : 'Use GitHub raw URLs, public gists, or public Pastebin links. One supported URL per line, with inline comments allowed after each URL.';
+    : 'Use GitHub Raw URLs or public Gists for the most reliable loading and offline reuse. Public Pastebin links are best-effort through proxy bridges. One supported URL per line, with inline comments allowed after each URL.';
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -185,7 +185,7 @@ export default function Home() {
                       <span>{headerProgressPercent}% ready</span>
                       <span>
                         {loadingProgress?.usesProxy
-                          ? 'Using proxy bridge services'
+                          ? 'Using best-effort proxy bridges'
                           : 'Using a direct browser request'}
                       </span>
                       {loadingProgress?.proxyAttempts.length ? (

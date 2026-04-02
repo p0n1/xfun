@@ -7,25 +7,56 @@ import { Serwist, StaleWhileRevalidate, NetworkFirst, CacheFirst, ExpirationPlug
 // actual precache manifest. By default, this string is set to
 // `"self.__SW_MANIFEST"`.
 declare global {
-  interface WorkerGlobalScope extends SerwistGlobalConfig {
+  interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
     __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
   }
 }
 
-declare const self: WorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope;
+
+const serviceWorkerSelf = self as ServiceWorkerGlobalScope & {
+  addEventListener: (
+    type: 'activate',
+    listener: (event: { waitUntil: (promise: Promise<unknown>) => void }) => void,
+  ) => void;
+};
+
+const DIRECT_LIST_CACHE = 'external-lists';
+const PROXY_CACHE_HOSTS = new Set([
+  'api.allorigins.win',
+  'corsproxy.io',
+  'api.codetabs.com',
+  'proxy.killcors.com',
+]);
+
+async function cleanupLegacyProxyEntries() {
+  const cache = await caches.open(DIRECT_LIST_CACHE);
+  const requests = await cache.keys();
+
+  await Promise.all(
+    requests.map(async (request) => {
+      try {
+        const url = new URL(request.url);
+        if (PROXY_CACHE_HOSTS.has(url.hostname)) {
+          await cache.delete(request);
+        }
+      } catch {
+        // Ignore malformed cached request URLs.
+      }
+    }),
+  );
+}
 
 // Optimized caching strategies for 1-week offline capability
 const customRuntimeCaching = [
-  // External list URLs: NetworkFirst for fresh content, 1-week offline fallback
+  // Direct list URLs only: NetworkFirst for fresh content, 1-week offline fallback.
+  // Proxy-hosted list fetches stay uncached so fallback attempts always reflect live responses.
   {
     matcher: ({ url }: { url: URL }) =>
       url.hostname === 'raw.githubusercontent.com' ||
-      url.hostname === 'gist.githubusercontent.com' ||
-      url.hostname === 'api.codetabs.com' ||
-      url.hostname === 'corsproxy.io' ||
-      url.hostname === 'api.allorigins.win',
+      url.hostname === 'gist.githubusercontent.com',
     handler: new NetworkFirst({
-      cacheName: 'external-lists',
+      cacheName: DIRECT_LIST_CACHE,
       networkTimeoutSeconds: 5, // Quick timeout to avoid slow loading
       plugins: [
         new ExpirationPlugin({
@@ -105,6 +136,10 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: customRuntimeCaching,
+});
+
+serviceWorkerSelf.addEventListener('activate', (event) => {
+  event.waitUntil(cleanupLegacyProxyEntries());
 });
 
 serwist.addEventListeners();

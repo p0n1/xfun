@@ -36,7 +36,7 @@ You can also join the discussion about this project on [reddit](https://www.redd
 2. Upload to a publicly accessible location:
    - **GitHub**: Create public repo → Upload .txt file → Copy raw URL
    - **GitHub Gist**: Create public gist → Copy raw URL
-   - **Pastebin**: Create public paste → Use paste URL
+   - **Pastebin**: Create public paste → Use paste URL if needed, but treat it as best-effort
 3. Click the "Custom List" button on the website
 4. Paste your URL and click "Load List"
 
@@ -45,8 +45,8 @@ You can also join the discussion about this project on [reddit](https://www.redd
 Some hosting services may block cross-origin requests (CORS). If your list fails to load:
 
 1. **Test CORS support** at [cors-test.codehappy.dev](https://cors-test.codehappy.dev) with your URL
-2. **Use GitHub** (recommended) — always supports CORS for raw URLs
-3. **Pastebin URLs** are automatically handled with a CORS proxy
+2. **Use GitHub Raw URLs or public Gists** (recommended) — they are the most reliable and support offline reuse
+3. **Pastebin URLs** are handled through public proxy bridges on a best-effort basis, so availability can vary
 
 ### Supported URL Formats
 
@@ -91,4 +91,5 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - **API**: Uses [FxEmbed API](https://api.fxtwitter.com) for X/Twitter content — no API keys required
 - **Styling**: System font stack for consistent, fast-loading typography
 - **Architecture**: Client-side only (server serves static files for simplicity)
+- **Offline list caching**: Direct-CORS list sources such as GitHub Raw and public Gists can be reused offline; proxied Pastebin loads are best-effort and online-only
 - **Self-hosting**: Can be easily deployed to any static hosting service (Vercel, Netlify, GitHub Pages, etc.)

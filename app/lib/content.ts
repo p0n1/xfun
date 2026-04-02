@@ -200,9 +200,11 @@ interface LoadUrlListOptions {
 
 interface ProxyDefinition {
   name: string;
-  url: string;
+  buildRequestUrl: (targetUrl: string, cacheBuster: string) => string;
   extractContent: (response: string) => string;
 }
+
+const PROXY_REQUEST_TIMEOUT_MS = 8000;
 
 function emitListLoadProgress(
   onProgress: LoadUrlListOptions['onProgress'],
@@ -244,6 +246,64 @@ function looksLikeCloudflareChallenge(content: string): boolean {
     lower.includes('challenge-error-text') ||
     lower.includes('checking your browser')
   );
+}
+
+function buildProxyHeaders(): HeadersInit {
+  return {
+    'Cache-Control': 'no-cache, no-store, max-age=0',
+    Pragma: 'no-cache',
+  };
+}
+
+function extractProxyErrorMessage(content: string): string | null {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const parts = [
+      parsed.error,
+      parsed.message,
+      parsed.corsfix_error,
+      parsed.detail,
+    ]
+      .filter((value): value is string => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    return parts.join(' ');
+  } catch {
+    return null;
+  }
+}
+
+async function fetchProxyResponse(requestUrl: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), PROXY_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(requestUrl, {
+      cache: 'no-store',
+      headers: buildProxyHeaders(),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(
+        `Timed out after ${Math.round(PROXY_REQUEST_TIMEOUT_MS / 1000)} seconds`,
+      );
+    }
+
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 export function deduplicateUrls(urls: string[]): {
@@ -300,21 +360,23 @@ async function fetchWithCorsProxy(
 ): Promise<string> {
   const proxies: ProxyDefinition[] = [
     {
-      name: 'allorigins',
-      url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-      extractContent: (response: string) => {
-        const data = JSON.parse(response) as { contents: string };
-        return data.contents;
+      name: 'codetabs',
+      buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
+        const proxyUrl = new URL('https://api.codetabs.com/v1/proxy');
+        proxyUrl.searchParams.set('quest', targetUrl);
+        proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
+        return proxyUrl.toString();
       },
-    },
-    {
-      name: 'corsproxy.io',
-      url: `https://corsproxy.io/?${encodeURIComponent(url)}`,
       extractContent: (response: string) => response,
     },
     {
-      name: 'codetabs',
-      url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
+      name: 'killcors',
+      buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
+        const proxyUrl = new URL('https://proxy.killcors.com');
+        proxyUrl.searchParams.set('url', targetUrl);
+        proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
+        return proxyUrl.toString();
+      },
       extractContent: (response: string) => response,
     },
   ];
@@ -340,13 +402,25 @@ async function fetchWithCorsProxy(
     });
 
     try {
-      const response = await fetch(proxy.url);
+      const requestUrl = proxy.buildRequestUrl(url, `${Date.now()}-${index}`);
+      const response = await fetchProxyResponse(requestUrl);
+      const text = await response.text();
+      const proxyError = extractProxyErrorMessage(text);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const statusDetail = proxyError ?? response.statusText;
+        throw new Error(`HTTP ${response.status}: ${statusDetail}`);
       }
 
-      const text = await response.text();
+      if (proxyError) {
+        throw new Error(proxyError);
+      }
+
       const content = proxy.extractContent(text);
+      const extractedProxyError = extractProxyErrorMessage(content);
+      if (extractedProxyError) {
+        throw new Error(extractedProxyError);
+      }
 
       if (looksLikeHtml(content)) {
         if (looksLikeCloudflareChallenge(content)) {
@@ -384,8 +458,8 @@ async function fetchWithCorsProxy(
           ? `${proxy.name} failed. Retrying with ${nextProxy.name}.`
           : `${proxy.name} failed.`,
         detail: nextProxy
-          ? `Moving to proxy bridge ${index + 2} of ${proxies.length}.`
-          : 'All available proxy bridges have been tried.',
+          ? `Moving to proxy bridge ${index + 2} of ${proxies.length}. GitHub Raw and public Gists are usually more reliable.`
+          : 'All available proxy bridges have been tried. GitHub Raw and public Gists are usually more reliable.',
         progressPercent: 32 + index * 14,
         usesProxy: true,
         proxyAttempts,
@@ -393,7 +467,7 @@ async function fetchWithCorsProxy(
     }
   }
 
-  throw lastError ?? new Error('All CORS proxies failed');
+  throw lastError ?? new Error('All public proxy bridges failed');
 }
 
 function formatListFetchError(originalUrl: string, message: string): string {
@@ -401,15 +475,19 @@ function formatListFetchError(originalUrl: string, message: string): string {
   const lowerMessage = message.toLowerCase();
 
   if (usesProxy && lowerMessage.includes('cloudflare')) {
-    return 'Pastebin blocked the proxy with a Cloudflare challenge. Try again later or use a GitHub raw URL or Gist instead.';
+    return 'Pastebin blocked the proxy bridge with a Cloudflare challenge. Pastebin support is best-effort here, so try again later or use a GitHub Raw URL or public Gist instead.';
   }
 
   if (usesProxy && lowerMessage.includes('html')) {
-    return 'The proxy returned HTML instead of a plain text list. Use a raw text URL, or try GitHub or Gist instead.';
+    return 'The proxy bridge returned HTML instead of a plain text list. Use a raw text URL, or switch to a GitHub Raw URL or public Gist instead.';
   }
 
-  if (usesProxy && lowerMessage.includes('all cors proxies failed')) {
-    return 'All fallback proxies failed to load this Pastebin source. Try again later or use GitHub or Gist instead.';
+  if (
+    usesProxy &&
+    (lowerMessage.includes('all public proxy bridges failed') ||
+      lowerMessage.includes('timed out after'))
+  ) {
+    return 'All public proxy bridges failed to load this Pastebin source. Pastebin support is best-effort, so try again later or use a GitHub Raw URL or public Gist instead.';
   }
 
   return `Failed to load the list: ${message}`;
@@ -445,7 +523,7 @@ export async function loadUrlList(
         stage: 'fetching',
         headline: 'Opening the list through a bridge',
         detail:
-          'This source often blocks direct browser reads, so the app is trying public proxy services.',
+          'This source often blocks direct browser reads, so the app is trying best-effort public proxy bridges. GitHub Raw and public Gists are more reliable and support offline reuse.',
         progressPercent: 16,
         usesProxy: true,
         proxyAttempts: [],
