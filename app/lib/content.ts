@@ -248,13 +248,6 @@ function looksLikeCloudflareChallenge(content: string): boolean {
   );
 }
 
-function buildProxyHeaders(): HeadersInit {
-  return {
-    'Cache-Control': 'no-cache, no-store, max-age=0',
-    Pragma: 'no-cache',
-  };
-}
-
 function extractProxyErrorMessage(content: string): string | null {
   const trimmed = content.trim();
   if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
@@ -288,9 +281,10 @@ async function fetchProxyResponse(requestUrl: string): Promise<Response> {
   const timeoutId = globalThis.setTimeout(() => controller.abort(), PROXY_REQUEST_TIMEOUT_MS);
 
   try {
+    // Keep this a simple GET. Some public CORS proxies only support GET and
+    // fail browser preflight requests triggered by custom headers.
     return await fetch(requestUrl, {
       cache: 'no-store',
-      headers: buildProxyHeaders(),
       signal: controller.signal,
     });
   } catch (error) {
@@ -362,7 +356,7 @@ async function fetchWithCorsProxy(
     {
       name: 'codetabs',
       buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
-        const proxyUrl = new URL('https://api.codetabs.com/v1/proxy');
+        const proxyUrl = new URL('https://api.codetabs.com/v1/proxy/');
         proxyUrl.searchParams.set('quest', targetUrl);
         proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
         return proxyUrl.toString();
@@ -370,10 +364,11 @@ async function fetchWithCorsProxy(
       extractContent: (response: string) => response,
     },
     {
-      name: 'killcors',
+      name: 'allorigins-hexlet',
       buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
-        const proxyUrl = new URL('https://proxy.killcors.com');
+        const proxyUrl = new URL('https://allorigins.hexlet.app/raw');
         proxyUrl.searchParams.set('url', targetUrl);
+        proxyUrl.searchParams.set('disableCache', 'true');
         proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
         return proxyUrl.toString();
       },
