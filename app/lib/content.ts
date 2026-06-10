@@ -205,6 +205,8 @@ interface ProxyDefinition {
 }
 
 const PROXY_REQUEST_TIMEOUT_MS = 8000;
+const LIST_REQUEST_TIMEOUT_MS = 10000;
+const FEED_ITEM_REQUEST_TIMEOUT_MS = 12000;
 
 function emitListLoadProgress(
   onProgress: LoadUrlListOptions['onProgress'],
@@ -276,21 +278,23 @@ function extractProxyErrorMessage(content: string): string | null {
   }
 }
 
-async function fetchProxyResponse(requestUrl: string): Promise<Response> {
+async function fetchWithTimeout(
+  requestUrl: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), PROXY_REQUEST_TIMEOUT_MS);
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Keep this a simple GET. Some public CORS proxies only support GET and
-    // fail browser preflight requests triggered by custom headers.
     return await fetch(requestUrl, {
-      cache: 'no-store',
+      ...init,
       signal: controller.signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error(
-        `Timed out after ${Math.round(PROXY_REQUEST_TIMEOUT_MS / 1000)} seconds`,
+        `Timed out after ${Math.round(timeoutMs / 1000)} seconds`,
       );
     }
 
@@ -298,6 +302,16 @@ async function fetchProxyResponse(requestUrl: string): Promise<Response> {
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
+}
+
+async function fetchProxyResponse(requestUrl: string): Promise<Response> {
+  // Keep this a simple GET. Some public CORS proxies only support GET and
+  // fail browser preflight requests triggered by custom headers.
+  return fetchWithTimeout(
+    requestUrl,
+    { cache: 'no-store' },
+    PROXY_REQUEST_TIMEOUT_MS,
+  );
 }
 
 export function deduplicateUrls(urls: string[]): {
@@ -533,7 +547,11 @@ export async function loadUrlList(
         usesProxy: false,
         proxyAttempts: [],
       });
-      const response = await fetch(normalizedListUrl);
+      const response = await fetchWithTimeout(
+        normalizedListUrl,
+        {},
+        LIST_REQUEST_TIMEOUT_MS,
+      );
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -641,7 +659,11 @@ async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
   )}`;
 
   try {
-    const response = await fetch(oembedUrl);
+    const response = await fetchWithTimeout(
+      oembedUrl,
+      {},
+      FEED_ITEM_REQUEST_TIMEOUT_MS,
+    );
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -684,7 +706,11 @@ async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
 
 async function fetchXItem(url: string): Promise<XPostItem> {
   const apiUrl = normalizeXApiUrl(url);
-  const response = await fetch(apiUrl);
+  const response = await fetchWithTimeout(
+    apiUrl,
+    {},
+    FEED_ITEM_REQUEST_TIMEOUT_MS,
+  );
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
@@ -712,6 +738,7 @@ export async function fetchFeedItem(url: string): Promise<FeedItem> {
 }
 
 export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
+  const preferredMaxBitrate = 1_000_000;
   const mp4Variants = variants.filter(
     (variant) =>
       variant.contentType === 'video/mp4' && typeof variant.bitrate === 'number',
@@ -721,9 +748,17 @@ export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
     return variants[0]?.url;
   }
 
-  return [...mp4Variants].sort(
-    (a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0),
-  )[0]?.url;
+  const sortedByBitrate = [...mp4Variants].sort(
+    (a, b) => (a.bitrate ?? 0) - (b.bitrate ?? 0),
+  );
+  const preferredVariants = sortedByBitrate.filter(
+    (variant) => (variant.bitrate ?? 0) <= preferredMaxBitrate,
+  );
+
+  return (
+    preferredVariants[preferredVariants.length - 1]?.url ??
+    sortedByBitrate[0]?.url
+  );
 }
 
 export function collectPreviewMedia(items: FeedItem[]): string[] {

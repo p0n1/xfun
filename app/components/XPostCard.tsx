@@ -156,7 +156,8 @@ function MediaGallery({
                     aspectRatio: `${video.width}/${video.height}`,
                     maxHeight: 'min(72vh, 34rem)',
                   }}
-                  preload="metadata"
+                  playsInline
+                  preload="none"
                   onPlay={(event) => pauseAllOtherVideos(event.currentTarget)}
                 >
                   {bestVideoUrl ? (

@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, StaleWhileRevalidate, NetworkFirst, CacheFirst, ExpirationPlugin, RangeRequestsPlugin } from "serwist";
+import { Serwist, StaleWhileRevalidate, NetworkFirst, NetworkOnly, CacheFirst, ExpirationPlugin } from "serwist";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -36,6 +36,7 @@ const PROXY_CACHE_HOSTS = new Set([
 // so anything "workbox-"-prefixed is also legacy.
 const LEGACY_CACHE_NAMES = new Set(['start-url']);
 const LEGACY_CACHE_PREFIXES = ['workbox-'];
+const MEDIA_CACHE_NAMES = new Set(['twitter-videos', 'static-video-assets']);
 
 async function cleanupLegacyCaches() {
   const cacheNames = await caches.keys();
@@ -45,7 +46,8 @@ async function cleanupLegacyCaches() {
       .filter(
         (name) =>
           LEGACY_CACHE_NAMES.has(name) ||
-          LEGACY_CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)),
+          LEGACY_CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)) ||
+          MEDIA_CACHE_NAMES.has(name),
       )
       .map((name) => caches.delete(name)),
   );
@@ -119,24 +121,12 @@ const customRuntimeCaching = [
       ]
     })
   },
-  // Twitter videos: Works on Safari and Chromium but not Brave.
-  // Full videos are large; keep this cache small so it cannot exhaust the
-  // origin's storage quota (which silently breaks all other cache writes)
-  // or add memory pressure that gets the page killed on iOS.
+  // Twitter videos must stream directly. Caching them forces the service worker
+  // to clone large media responses while Safari is also decoding playback,
+  // which can crash-reload iOS pages even outside standalone PWA mode.
   {
     matcher: ({ url }: { url: URL }) => url.hostname === 'video.twimg.com',
-    handler: new CacheFirst({
-      cacheName: 'twitter-videos',
-      plugins: [
-        new RangeRequestsPlugin(),
-        new ExpirationPlugin({
-          maxEntries: 8,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
-          maxAgeFrom: "last-used",
-          purgeOnQuotaError: true
-        })
-      ]
-    })
+    handler: new NetworkOnly()
   },
   // YouTube oEmbed API responses: 1-week caching
   {
