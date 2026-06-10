@@ -738,7 +738,6 @@ export async function fetchFeedItem(url: string): Promise<FeedItem> {
 }
 
 export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
-  const preferredMaxBitrate = 1_000_000;
   const mp4Variants = variants.filter(
     (variant) =>
       variant.contentType === 'video/mp4' && typeof variant.bitrate === 'number',
@@ -748,17 +747,9 @@ export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
     return variants[0]?.url;
   }
 
-  const sortedByBitrate = [...mp4Variants].sort(
-    (a, b) => (a.bitrate ?? 0) - (b.bitrate ?? 0),
-  );
-  const preferredVariants = sortedByBitrate.filter(
-    (variant) => (variant.bitrate ?? 0) <= preferredMaxBitrate,
-  );
-
-  return (
-    preferredVariants[preferredVariants.length - 1]?.url ??
-    sortedByBitrate[0]?.url
-  );
+  return [...mp4Variants].sort(
+    (a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0),
+  )[0]?.url;
 }
 
 export function collectPreviewMedia(items: FeedItem[]): string[] {
