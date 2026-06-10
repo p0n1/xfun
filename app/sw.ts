@@ -29,6 +29,28 @@ const PROXY_CACHE_HOSTS = new Set([
   'proxy.killcors.com',
 ]);
 
+// Caches left behind by the old next-pwa service worker. Its "start-url" cache
+// stored the app HTML with no expiration, so failed navigations could be served
+// a shell from a long-gone build whose hashed assets now 404 — an unstyled page
+// that never hydrates. The current setup uses "serwist-"-prefixed cache names,
+// so anything "workbox-"-prefixed is also legacy.
+const LEGACY_CACHE_NAMES = new Set(['start-url']);
+const LEGACY_CACHE_PREFIXES = ['workbox-'];
+
+async function cleanupLegacyCaches() {
+  const cacheNames = await caches.keys();
+
+  await Promise.all(
+    cacheNames
+      .filter(
+        (name) =>
+          LEGACY_CACHE_NAMES.has(name) ||
+          LEGACY_CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)),
+      )
+      .map((name) => caches.delete(name)),
+  );
+}
+
 async function cleanupLegacyProxyEntries() {
   const cache = await caches.open(DIRECT_LIST_CACHE);
   const requests = await cache.keys();
@@ -91,12 +113,16 @@ const customRuntimeCaching = [
         new ExpirationPlugin({
           maxEntries: 400,
           maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
-          maxAgeFrom: "last-used"
+          maxAgeFrom: "last-used",
+          purgeOnQuotaError: true
         })
       ]
     })
   },
-  // Twitter videos: Works on Safari and Chromium but not Brave
+  // Twitter videos: Works on Safari and Chromium but not Brave.
+  // Full videos are large; keep this cache small so it cannot exhaust the
+  // origin's storage quota (which silently breaks all other cache writes)
+  // or add memory pressure that gets the page killed on iOS.
   {
     matcher: ({ url }: { url: URL }) => url.hostname === 'video.twimg.com',
     handler: new CacheFirst({
@@ -104,9 +130,10 @@ const customRuntimeCaching = [
       plugins: [
         new RangeRequestsPlugin(),
         new ExpirationPlugin({
-          maxEntries: 50,
+          maxEntries: 8,
           maxAgeSeconds: 7 * 24 * 60 * 60,
-          maxAgeFrom: "last-used"
+          maxAgeFrom: "last-used",
+          purgeOnQuotaError: true
         })
       ]
     })
@@ -136,10 +163,27 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: customRuntimeCaching,
+  // When a navigation can produce neither a network response nor a usable
+  // runtime-cache entry (e.g. iOS reloads the PWA after a crash while the
+  // network is down), serve the precached app shell of the current build
+  // instead of failing. "/" is precached via additionalPrecacheEntries in
+  // next.config.ts, so its assets are guaranteed to be precached alongside it.
+  fallbacks: {
+    entries: [
+      {
+        url: '/',
+        matcher({ request }) {
+          return request.destination === 'document';
+        },
+      },
+    ],
+  },
 });
 
 serviceWorkerSelf.addEventListener('activate', (event) => {
-  event.waitUntil(cleanupLegacyProxyEntries());
+  event.waitUntil(
+    Promise.all([cleanupLegacyProxyEntries(), cleanupLegacyCaches()]),
+  );
 });
 
 serwist.addEventListeners();
