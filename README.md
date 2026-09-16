@@ -84,6 +84,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Validation
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+The regression tests use Node's built-in test runner and mocked requests. They cover list parsing and deduplication, nested list URLs, request cancellation and body timeouts, proxy fallback, and FxEmbed media handling. No test API keys or extra test dependencies are required.
+
 ## Technical Details
 
 - **Framework**: Built with [Next.js](https://nextjs.org) for optimal performance

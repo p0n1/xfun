@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from 'react';
 import Image from 'next/image';
+import DynamicManifest from './components/DynamicManifest';
 import ListLoadingPanel from './components/ListLoadingPanel';
 import Reveal from './components/Reveal';
 import ScrollToTop from './components/ScrollToTop';
@@ -23,7 +24,6 @@ export default function Home() {
     setInputUrl,
     urls,
     loadDemo,
-    loadDemoListUrl,
     loadRemoteList,
   } = useListSource();
   const {
@@ -33,15 +33,15 @@ export default function Home() {
     isLoadingMore,
     items,
     loadMore,
+    loadMoreRef,
     stats,
   } = useFeedLoader(urls);
   const { canInstall, installApp, isOnline } = usePwaState();
   const [showCustomList, setShowCustomList] = useState(false);
   const [installMessage, setInstallMessage] = useState('');
 
-  const processedCount = stats.successful + stats.failed;
   const feedProgressPercent =
-    stats.total > 0 ? Math.round((processedCount / stats.total) * 100) : 0;
+    stats.total > 0 ? Math.round((stats.processed / stats.total) * 100) : 0;
   const headerProgressPercent = isLoadingList
     ? loadingProgress?.progressPercent ?? 8
     : feedProgressPercent;
@@ -79,6 +79,7 @@ export default function Home() {
         <div className="absolute bottom-16 left-1/3 h-44 w-44 rounded-full bg-fuchsia-200/25 blur-3xl" />
       </div>
 
+      <DynamicManifest listUrl={activeSource.url} />
       <main className="relative">
         <section className="px-4 pb-5 pt-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-6xl rounded-[2.25rem] border border-white/70 bg-white/80 px-5 py-6 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:px-6 sm:py-7">
@@ -110,7 +111,7 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={loadDemo}
+                onClick={() => loadDemo()}
                 className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
                 Built-in demo
@@ -118,7 +119,7 @@ export default function Home() {
               {demoLists[0] ? (
                 <button
                   type="button"
-                  onClick={() => void loadDemoListUrl(demoLists[0].url)}
+                  onClick={() => void loadRemoteList(demoLists[0].url)}
                   className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   Try examples
@@ -137,6 +138,7 @@ export default function Home() {
               <form onSubmit={handleSubmit} className="mx-auto mt-5 max-w-3xl space-y-3">
                 <input
                   type="url"
+                  aria-label="Public text-file URL"
                   value={inputUrl}
                   onChange={(event) => setInputUrl(event.target.value)}
                   placeholder="Public text-file URL"
@@ -272,6 +274,8 @@ export default function Home() {
                 No supported posts were loaded yet.
               </div>
             ) : null}
+
+            <div ref={loadMoreRef} aria-hidden="true" />
 
             {isLoadingMore ? (
               <div className="flex justify-center py-8">

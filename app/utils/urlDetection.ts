@@ -1,11 +1,5 @@
 const X_STATUS_REGEX =
-  /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]{1,15})\/status\/(\d+)/i;
-const YOUTUBE_WATCH_REGEX =
-  /^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:.*?&)?v=([A-Za-z0-9_-]{11})(?:[&#].*)?$/i;
-const YOUTUBE_SHORT_REGEX =
-  /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})(?:[?&#].*)?$/i;
-const YOUTUBE_IN_TEXT_REGEX =
-  /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^\s#]*&)?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
+  /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]{1,15})\/status\/(\d+)(?=[/?#]|$)/i;
 
 export function isXUrl(url: string): boolean {
   return X_STATUS_REGEX.test(url);
@@ -31,18 +25,19 @@ export function extractXStatusParts(url: string): {
 }
 
 export function extractYouTubeVideoId(url: string): string | null {
-  const watchMatch = url.match(YOUTUBE_WATCH_REGEX);
-  if (watchMatch) {
-    return watchMatch[1];
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    const videoId = hostname === 'youtu.be'
+      ? parsed.pathname.slice(1)
+      : hostname === 'youtube.com' && parsed.pathname === '/watch'
+        ? parsed.searchParams.get('v')
+        : null;
+    return videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
+  } catch {
+    return null;
   }
-
-  const shortMatch = url.match(YOUTUBE_SHORT_REGEX);
-  if (shortMatch) {
-    return shortMatch[1];
-  }
-
-  const inTextMatch = url.match(YOUTUBE_IN_TEXT_REGEX);
-  return inTextMatch ? inTextMatch[1] : null;
 }
 
 export function normalizeXCanonicalUrl(url: string): string {
@@ -94,19 +89,18 @@ export function isPastebinUrl(url: string): boolean {
 }
 
 export function normalizeListSourceUrl(url: string): string {
-  if (!isPastebinUrl(url)) {
-    return url;
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Use an HTTP or HTTPS URL for your text list.');
   }
+  if (parsed.hostname === 'pastebin.com' && !parsed.pathname.startsWith('/raw/')) {
+    parsed.pathname = `/raw${parsed.pathname}`;
+  }
+  return parsed.toString();
+}
 
-  try {
-    const parsed = new URL(url);
-    if (!parsed.pathname.startsWith('/raw/')) {
-      parsed.pathname = `/raw${parsed.pathname}`;
-    }
-    return parsed.toString();
-  } catch {
-    return url;
-  }
+export function buildListPath(pathname: string, listUrl?: string): string {
+  return listUrl ? `${pathname}?${new URLSearchParams({ list: listUrl })}` : pathname;
 }
 
 export function getContentType(url: string): 'twitter' | 'youtube' | 'unknown' {

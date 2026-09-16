@@ -7,10 +7,10 @@
     "dev-no-turbopack": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js"
   },
   "dependencies": {
-    "@next/third-parties": "^16.2.1",
     "@serwist/next": "^9.5.7",
     "next": "^16.2.1",
     "photoswipe": "^5.4.4",
@@ -19,7 +19,6 @@
     "serwist": "^9.5.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.5",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",

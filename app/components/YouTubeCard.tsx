@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import type { YouTubeItem } from '../lib/content';
 
 interface YouTubeCardProps {
   item: YouTubeItem;
 }
 
-export default function YouTubeCard({ item }: YouTubeCardProps) {
+function YouTubeCard({ item }: YouTubeCardProps) {
   return (
     <article className="relative overflow-hidden rounded-[2rem] border border-white/65 bg-white/80 p-5 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:p-7">
       <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-rose-300/70 to-transparent" />
@@ -34,7 +35,8 @@ export default function YouTubeCard({ item }: YouTubeCardProps) {
       <div className="mt-5 overflow-hidden rounded-[1.75rem] bg-slate-950 shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
         <div className="relative aspect-video w-full">
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${item.videoId}?controls=1&modestbranding=1&rel=0`}
+            loading="lazy"
+            src={`https://www.youtube-nocookie.com/embed/${item.videoId}?controls=1&rel=0`}
             title={item.metadata?.title ?? 'YouTube video'}
             className="absolute inset-0 h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -46,3 +48,5 @@ export default function YouTubeCard({ item }: YouTubeCardProps) {
     </article>
   );
 }
+
+export default memo(YouTubeCard);

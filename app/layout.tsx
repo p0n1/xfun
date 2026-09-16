@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import DynamicManifest from "./components/DynamicManifest";
 
 
 export const metadata: Metadata = {
@@ -26,8 +25,6 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#1da1f2",
 };
 
@@ -41,7 +38,6 @@ export default function RootLayout({
       <body
         className="antialiased"
       >
-        <DynamicManifest />
         {children}
       </body>
     </html>

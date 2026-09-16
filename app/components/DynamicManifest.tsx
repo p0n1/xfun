@@ -1,78 +1,40 @@
 'use client';
 
 import { useEffect } from 'react';
+import { buildListPath } from '../utils/urlDetection';
 
-export default function DynamicManifest() {
+export default function DynamicManifest({ listUrl }: { listUrl?: string }) {
   useEffect(() => {
-    let currentManifestUrl: string | null = null;
-
-    const updateManifest = () => {
-      const params = new URLSearchParams(window.location.search);
-      const listParam = params.get('list');
-      
-      // Create manifest object
-      const manifest = {
-        name: "X Fun",
-        short_name: "X Fun",
-        description: "Fun and engaging content for curious minds",
-        start_url: listParam ? `/?list=${listParam}` : '/',
-        display: "standalone",
-        background_color: "#000000",
-        theme_color: "#1da1f2",
-        orientation: "portrait-primary",
-        categories: ["fun", "education", "children", "entertainment", "social"],
-        icons: [
-          {
-            src: "/icon.svg",
-            sizes: "any",
-            type: "image/svg+xml"
-          },
-          {
-            src: "/apple-icon.png",
-            sizes: "180x180",
-            type: "image/png"
-          }
-        ]
-      };
-
-      // Create blob URL for the manifest
-      const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-      const manifestUrl = URL.createObjectURL(manifestBlob);
-      if (currentManifestUrl) {
-        URL.revokeObjectURL(currentManifestUrl);
-      }
-      currentManifestUrl = manifestUrl;
-
-      // Remove existing manifest link
-      const existingManifest = document.querySelector('link[rel="manifest"]');
-      if (existingManifest) {
-        existingManifest.remove();
-      }
-
-      // Add new manifest link
-      const link = document.createElement('link');
-      link.rel = 'manifest';
-      link.href = manifestUrl;
-      document.head.appendChild(link);
+    const origin = window.location.origin;
+    // Blob manifests need absolute URLs; relative URLs cannot resolve against blob:.
+    const manifest = {
+      name: 'X Fun',
+      short_name: 'X Fun',
+      description: 'Fun and engaging content for curious minds',
+      start_url: new URL(buildListPath(window.location.pathname, listUrl), origin).href,
+      scope: `${origin}/`,
+      display: 'standalone',
+      background_color: '#000000',
+      theme_color: '#1da1f2',
+      orientation: 'portrait-primary',
+      categories: ['fun', 'education', 'children', 'entertainment', 'social'],
+      icons: [
+        { src: `${origin}/icon.svg`, sizes: 'any', type: 'image/svg+xml' },
+        { src: `${origin}/apple-icon.png`, sizes: '180x180', type: 'image/png' },
+      ],
     };
-
-    // Update manifest on mount
-    updateManifest();
-
-    // Listen for URL changes (for SPAs)
-    const handlePopState = () => {
-      updateManifest();
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    
+    const manifestUrl = URL.createObjectURL(
+      new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }),
+    );
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestUrl;
+    document.head.appendChild(link);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      if (currentManifestUrl) {
-        URL.revokeObjectURL(currentManifestUrl);
-      }
+      link.remove();
+      URL.revokeObjectURL(manifestUrl);
     };
-  }, []);
+  }, [listUrl]);
 
   return null;
 }

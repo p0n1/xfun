@@ -24,6 +24,7 @@ const serviceWorkerSelf = self as ServiceWorkerGlobalScope & {
 const DIRECT_LIST_CACHE = 'external-lists';
 const PROXY_CACHE_HOSTS = new Set([
   'api.allorigins.win',
+  'allorigins.hexlet.app',
   'corsproxy.io',
   'api.codetabs.com',
   'proxy.killcors.com',
@@ -73,6 +74,10 @@ async function cleanupLegacyProxyEntries() {
 
 // Optimized caching strategies for 1-week offline capability
 const customRuntimeCaching = [
+  {
+    matcher: ({ url }: { url: URL }) => PROXY_CACHE_HOSTS.has(url.hostname),
+    handler: new NetworkOnly(),
+  },
   // Direct list URLs only: NetworkFirst for fresh content, 1-week offline fallback.
   // Proxy-hosted list fetches stay uncached so fallback attempts always reflect live responses.
   {

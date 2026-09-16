@@ -26,7 +26,7 @@ export default function Reveal({ children, className }: RevealProps) {
       },
       {
         rootMargin: '0px 0px -10% 0px',
-        threshold: 0.15,
+        threshold: 0,
       },
     );
 

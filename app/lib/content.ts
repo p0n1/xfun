@@ -1,4 +1,6 @@
+import { fetchText } from './request';
 import {
+  extractXStatusParts,
   extractYouTubeVideoId,
   getContentType,
   isPastebinUrl,
@@ -170,7 +172,7 @@ interface RawFxVideo {
   duration: number;
   width: number;
   height: number;
-  variants: RawFxVideoVariant[];
+  variants?: RawFxVideoVariant[];
 }
 
 interface RawFxMedia {
@@ -195,13 +197,13 @@ interface RawFxResponse {
 }
 
 interface LoadUrlListOptions {
+  signal?: AbortSignal;
   onProgress?: (progress: ListLoadProgress) => void;
 }
 
 interface ProxyDefinition {
   name: string;
   buildRequestUrl: (targetUrl: string, cacheBuster: string) => string;
-  extractContent: (response: string) => string;
 }
 
 const PROXY_REQUEST_TIMEOUT_MS = 8000;
@@ -278,42 +280,6 @@ function extractProxyErrorMessage(content: string): string | null {
   }
 }
 
-async function fetchWithTimeout(
-  requestUrl: string,
-  init: RequestInit,
-  timeoutMs: number,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(requestUrl, {
-      ...init,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(
-        `Timed out after ${Math.round(timeoutMs / 1000)} seconds`,
-      );
-    }
-
-    throw error;
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-  }
-}
-
-async function fetchProxyResponse(requestUrl: string): Promise<Response> {
-  // Keep this a simple GET. Some public CORS proxies only support GET and
-  // fail browser preflight requests triggered by custom headers.
-  return fetchWithTimeout(
-    requestUrl,
-    { cache: 'no-store' },
-    PROXY_REQUEST_TIMEOUT_MS,
-  );
-}
-
 export function deduplicateUrls(urls: string[]): {
   urls: string[];
   duplicatesRemoved: number;
@@ -324,12 +290,14 @@ export function deduplicateUrls(urls: string[]): {
 
   for (const url of urls) {
     const normalized = normalizeSupportedUrl(url);
-    if (seen.has(normalized)) {
+    const statusId = extractXStatusParts(normalized)?.statusId;
+    const key = statusId ? `x:${statusId}` : normalized;
+    if (seen.has(key)) {
       duplicatesRemoved += 1;
       continue;
     }
 
-    seen.add(normalized);
+    seen.add(key);
     deduplicated.push(normalized);
   }
 
@@ -345,26 +313,15 @@ export function parseUrlList(text: string): string[] {
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#') && !line.startsWith('//'))
     .map((line) => {
-      const xMatch = line.match(
-        /^(https:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d+)/i,
-      );
-      if (xMatch) {
-        return normalizeXCanonicalUrl(xMatch[1]);
-      }
-
-      const videoId = extractYouTubeVideoId(line);
-      if (videoId) {
-        return `https://www.youtube.com/watch?v=${videoId}`;
-      }
-
-      return null;
+      const url = line.split(/\s+/, 1)[0];
+      return getContentType(url) === 'unknown' ? null : normalizeSupportedUrl(url);
     })
     .filter((url): url is string => Boolean(url));
 }
 
 async function fetchWithCorsProxy(
   url: string,
-  onProgress?: LoadUrlListOptions['onProgress'],
+  { onProgress, signal }: LoadUrlListOptions,
 ): Promise<string> {
   const proxies: ProxyDefinition[] = [
     {
@@ -375,7 +332,6 @@ async function fetchWithCorsProxy(
         proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
         return proxyUrl.toString();
       },
-      extractContent: (response: string) => response,
     },
     {
       name: 'allorigins-hexlet',
@@ -386,7 +342,6 @@ async function fetchWithCorsProxy(
         proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
         return proxyUrl.toString();
       },
-      extractContent: (response: string) => response,
     },
   ];
   const proxyAttempts: ListProxyAttempt[] = proxies.map((proxy) => ({
@@ -397,6 +352,7 @@ async function fetchWithCorsProxy(
   let lastError: Error | null = null;
 
   for (const [index, proxy] of proxies.entries()) {
+    signal?.throwIfAborted();
     proxyAttempts[index] = {
       name: proxy.name,
       status: 'active',
@@ -412,27 +368,19 @@ async function fetchWithCorsProxy(
 
     try {
       const requestUrl = proxy.buildRequestUrl(url, `${Date.now()}-${index}`);
-      const response = await fetchProxyResponse(requestUrl);
-      const text = await response.text();
+      const text = await fetchText(requestUrl, {
+        cache: 'no-store',
+        timeoutMs: PROXY_REQUEST_TIMEOUT_MS,
+        signal,
+      });
       const proxyError = extractProxyErrorMessage(text);
-
-      if (!response.ok) {
-        const statusDetail = proxyError ?? response.statusText;
-        throw new Error(`HTTP ${response.status}: ${statusDetail}`);
-      }
 
       if (proxyError) {
         throw new Error(proxyError);
       }
 
-      const content = proxy.extractContent(text);
-      const extractedProxyError = extractProxyErrorMessage(content);
-      if (extractedProxyError) {
-        throw new Error(extractedProxyError);
-      }
-
-      if (looksLikeHtml(content)) {
-        if (looksLikeCloudflareChallenge(content)) {
+      if (looksLikeHtml(text)) {
+        if (looksLikeCloudflareChallenge(text)) {
           throw new Error('Received Cloudflare challenge HTML');
         }
 
@@ -451,8 +399,9 @@ async function fetchWithCorsProxy(
         usesProxy: true,
         proxyAttempts,
       });
-      return content;
+      return text;
     } catch (error) {
+      signal?.throwIfAborted();
       proxyAttempts[index] = {
         name: proxy.name,
         status: 'failed',
@@ -513,7 +462,8 @@ export async function loadUrlList(
   const normalizedListUrl = normalizeListSourceUrl(listUrl.trim());
   const usesProxy = isPastebinUrl(normalizedListUrl);
   const hostname = getHostnameLabel(normalizedListUrl);
-  const { onProgress } = options;
+  const { onProgress, signal } = options;
+  signal?.throwIfAborted();
 
   emitListLoadProgress(onProgress, {
     stage: 'preparing',
@@ -537,7 +487,7 @@ export async function loadUrlList(
         usesProxy: true,
         proxyAttempts: [],
       });
-      text = await fetchWithCorsProxy(normalizedListUrl, onProgress);
+      text = await fetchWithCorsProxy(normalizedListUrl, options);
     } else {
       emitListLoadProgress(onProgress, {
         stage: 'fetching',
@@ -547,16 +497,10 @@ export async function loadUrlList(
         usesProxy: false,
         proxyAttempts: [],
       });
-      const response = await fetchWithTimeout(
-        normalizedListUrl,
-        {},
-        LIST_REQUEST_TIMEOUT_MS,
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      text = await response.text();
+      text = await fetchText(normalizedListUrl, {
+        timeoutMs: LIST_REQUEST_TIMEOUT_MS,
+        signal,
+      });
       emitListLoadProgress(onProgress, {
         stage: 'parsing',
         headline: 'List text received',
@@ -607,6 +551,7 @@ export async function loadUrlList(
       normalizedListUrl,
     };
   } catch (error) {
+    signal?.throwIfAborted();
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(formatListFetchError(listUrl, message));
   }
@@ -637,7 +582,7 @@ function normalizeFxTweet(tweet: RawFxTweet): XPostItem {
         duration: video.duration,
         width: video.width,
         height: video.height,
-        variants: video.variants.map((variant) => ({
+        variants: (video.variants ?? []).map((variant) => ({
           contentType: variant.content_type,
           url: variant.url,
           bitrate: variant.bitrate,
@@ -647,7 +592,7 @@ function normalizeFxTweet(tweet: RawFxTweet): XPostItem {
   };
 }
 
-async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
+async function fetchYouTubeItem(url: string, signal?: AbortSignal): Promise<YouTubeItem> {
   const videoId = extractYouTubeVideoId(url);
   if (!videoId) {
     throw new Error(`Unsupported YouTube URL: ${url}`);
@@ -659,16 +604,10 @@ async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
   )}`;
 
   try {
-    const response = await fetchWithTimeout(
-      oembedUrl,
-      {},
-      FEED_ITEM_REQUEST_TIMEOUT_MS,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as {
+    const data = JSON.parse(await fetchText(oembedUrl, {
+      timeoutMs: FEED_ITEM_REQUEST_TIMEOUT_MS,
+      signal,
+    })) as {
       title: string;
       author_name: string;
       author_url: string;
@@ -690,6 +629,7 @@ async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
       },
     };
   } catch (error) {
+    signal?.throwIfAborted();
     const message =
       error instanceof Error ? error.message : 'Unable to load video metadata.';
 
@@ -704,18 +644,11 @@ async function fetchYouTubeItem(url: string): Promise<YouTubeItem> {
   }
 }
 
-async function fetchXItem(url: string): Promise<XPostItem> {
-  const apiUrl = normalizeXApiUrl(url);
-  const response = await fetchWithTimeout(
-    apiUrl,
-    {},
-    FEED_ITEM_REQUEST_TIMEOUT_MS,
-  );
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  const data = (await response.json()) as RawFxResponse;
+async function fetchXItem(url: string, signal?: AbortSignal): Promise<XPostItem> {
+  const data = JSON.parse(await fetchText(normalizeXApiUrl(url), {
+    timeoutMs: FEED_ITEM_REQUEST_TIMEOUT_MS,
+    signal,
+  })) as RawFxResponse;
   if (data.code !== 200) {
     throw new Error(data.message || 'Failed to fetch X post.');
   }
@@ -723,55 +656,26 @@ async function fetchXItem(url: string): Promise<XPostItem> {
   return normalizeFxTweet(data.tweet);
 }
 
-export async function fetchFeedItem(url: string): Promise<FeedItem> {
+export async function fetchFeedItem(url: string, signal?: AbortSignal): Promise<FeedItem> {
+  signal?.throwIfAborted();
   const contentType = getContentType(url);
 
   if (contentType === 'twitter') {
-    return fetchXItem(url);
+    return fetchXItem(url, signal);
   }
 
   if (contentType === 'youtube') {
-    return fetchYouTubeItem(url);
+    return fetchYouTubeItem(url, signal);
   }
 
   throw new Error(`Unsupported content URL: ${url}`);
 }
 
 export function getBestVideoUrl(variants: XVideoVariant[]): string | undefined {
-  const mp4Variants = variants.filter(
-    (variant) =>
-      variant.contentType === 'video/mp4' && typeof variant.bitrate === 'number',
-  );
-
-  if (mp4Variants.length === 0) {
-    return variants[0]?.url;
+  let best: XVideoVariant | undefined;
+  for (const variant of variants) {
+    if (variant.contentType !== 'video/mp4') continue;
+    if (!best || (variant.bitrate ?? 0) > (best.bitrate ?? 0)) best = variant;
   }
-
-  return [...mp4Variants].sort(
-    (a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0),
-  )[0]?.url;
-}
-
-export function collectPreviewMedia(items: FeedItem[]): string[] {
-  const previewMedia: string[] = [];
-
-  for (const item of items) {
-    if (item.kind === 'x') {
-      if (item.photos[0]) {
-        previewMedia.push(item.photos[0].url);
-      } else if (item.videos[0]) {
-        previewMedia.push(item.videos[0].thumbnailUrl);
-      } else if (item.quote?.photos[0]) {
-        previewMedia.push(item.quote.photos[0].url);
-      }
-    } else if (item.metadata?.thumbnailUrl) {
-      previewMedia.push(item.metadata.thumbnailUrl);
-    }
-
-    if (previewMedia.length === 3) {
-      break;
-    }
-  }
-
-  return previewMedia;
+  return best?.url;
 }

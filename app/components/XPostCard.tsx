@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import PhotoSwipe from 'photoswipe';
+import type PhotoSwipe from 'photoswipe';
 import 'photoswipe/style.css';
 import { getBestVideoUrl, type XPhoto, type XPostItem, type XVideo } from '../lib/content';
 
@@ -30,22 +30,8 @@ function pauseAllOtherVideos(currentVideo: HTMLVideoElement) {
 }
 
 function getPhotoGridClass(photoCount: number) {
-  if (photoCount === 1) {
-    return 'grid-cols-1';
-  }
-
-  if (photoCount === 3) {
-    return 'grid-cols-2 md:grid-cols-3';
-  }
-
-  if (photoCount === 4) {
-    return 'grid-cols-2';
-  }
-
-  if (photoCount === 2) {
-    return 'grid-cols-2';
-  }
-
+  if (photoCount === 1) return 'grid-cols-1';
+  if (photoCount === 2 || photoCount === 4) return 'grid-cols-2';
   return 'grid-cols-2 md:grid-cols-3';
 }
 
@@ -104,32 +90,53 @@ function MediaGallery({
   photos: XPhoto[];
   videos: XVideo[];
 }) {
-  const openGallery = (photoUrl: string) => {
-    const index = photos.findIndex((photo) => photo.url === photoUrl);
-    const dataSource = photos.map((photo) => ({
-      alt: 'Post image',
-      height: photo.height,
-      src: photo.url,
-      width: photo.width,
-    }));
+  const lightboxRef = useRef<PhotoSwipe | null>(null);
+  const mountedRef = useRef(false);
+  const openingRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      lightboxRef.current?.destroy();
+    };
+  }, []);
 
-    const lightbox = new PhotoSwipe({
-      allowPanToNext: true,
-      arrowKeys: true,
-      bgOpacity: 0.92,
-      clickToCloseNonZoomable: false,
-      dataSource,
-      doubleTapAction: 'zoom',
-      index: index === -1 ? 0 : index,
-      loop: true,
-      preloaderDelay: 1000,
-      returnFocus: true,
-      showHideAnimationType: 'zoom',
-      spacing: 0.12,
-      tapAction: 'toggle-controls',
-    });
+  const openGallery = async (index: number) => {
+    if (openingRef.current) return;
+    openingRef.current = true;
+    try {
+      const { default: PhotoSwipe } = await import('photoswipe');
+      if (!mountedRef.current) return;
 
-    lightbox.init();
+      const dataSource = photos.map((photo) => ({
+        alt: 'Post image',
+        height: photo.height,
+        src: photo.url,
+        width: photo.width,
+      }));
+
+      const lightbox = new PhotoSwipe({
+        allowPanToNext: true,
+        arrowKeys: true,
+        bgOpacity: 0.92,
+        clickToCloseNonZoomable: false,
+        dataSource,
+        doubleTapAction: 'zoom',
+        index,
+        loop: true,
+        preloaderDelay: 1000,
+        returnFocus: true,
+        showHideAnimationType: 'zoom',
+        spacing: 0.12,
+        tapAction: 'toggle-controls',
+      });
+
+      lightboxRef.current?.destroy();
+      lightboxRef.current = lightbox;
+      lightbox.init();
+    } finally {
+      openingRef.current = false;
+    }
   };
 
   if (photos.length === 0 && videos.length === 0) {
@@ -141,7 +148,7 @@ function MediaGallery({
       {videos.length > 0 ? (
         <div className="space-y-3">
           {videos.map((video) => {
-            const bestVideoUrl = getBestVideoUrl(video.variants);
+            const bestVideoUrl = getBestVideoUrl(video.variants) ?? video.url;
 
             return (
               <div
@@ -177,7 +184,8 @@ function MediaGallery({
             <button
               key={photo.url}
               type="button"
-              onClick={() => openGallery(photo.url)}
+              onClick={() => void openGallery(index)}
+              aria-label={`Enlarge photo ${index + 1} of ${photos.length}`}
               className={`group relative overflow-hidden rounded-[1.5rem] bg-slate-100 text-left ${getPhotoTileClass(
                 photos.length,
                 index,
@@ -219,7 +227,7 @@ function QuoteBlock({ quote }: { quote: XPostItem }) {
       </div>
 
       {quote.text ? (
-        <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
           {quote.text}
         </p>
       ) : null}
@@ -229,10 +237,13 @@ function QuoteBlock({ quote }: { quote: XPostItem }) {
   );
 }
 
-export default function XPostCard({ item }: XPostCardProps) {
+function XPostCard({ item }: XPostCardProps) {
   const [clickCount, setClickCount] = useState(0);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(clickTimerRef.current), []);
 
   const handleDateClick = () => {
+    clearTimeout(clickTimerRef.current);
     const nextClickCount = clickCount + 1;
     setClickCount(nextClickCount);
 
@@ -242,7 +253,7 @@ export default function XPostCard({ item }: XPostCardProps) {
       return;
     }
 
-    window.setTimeout(() => {
+    clickTimerRef.current = setTimeout(() => {
       setClickCount(0);
     }, 3000);
   };
@@ -281,7 +292,7 @@ export default function XPostCard({ item }: XPostCardProps) {
 
       <div className="mt-5 space-y-5">
         {item.text ? (
-          <p className="whitespace-pre-wrap text-[1rem] leading-7 text-slate-700 sm:text-[1.05rem]">
+          <p className="whitespace-pre-wrap break-words text-[1rem] leading-7 text-slate-700 sm:text-[1.05rem]">
             {item.text}
           </p>
         ) : null}
@@ -306,3 +317,5 @@ export default function XPostCard({ item }: XPostCardProps) {
     </article>
   );
 }
+
+export default memo(XPostCard);

@@ -8,8 +8,10 @@ import {
   type ListLoadProgress,
   loadUrlList,
 } from '../lib/content';
+import { buildListPath } from '../utils/urlDetection';
 
 type ListStatus = 'idle' | 'loading' | 'loaded' | 'error';
+type HistoryMode = 'push' | 'replace' | 'skip';
 
 interface ActiveSource {
   kind: 'demo' | 'remote';
@@ -17,156 +19,99 @@ interface ActiveSource {
   url?: string;
 }
 
-interface LoadResult {
-  urls: string[];
-  duplicatesRemoved: number;
-  activeSource: ActiveSource;
-}
+const DEMO_SOURCE: ActiveSource = { kind: 'demo', label: 'Built-in demo' };
 
-interface LoadRemoteListOptions {
-  historyMode?: 'push' | 'replace' | 'skip';
-}
-
-const DEMO_SOURCE: ActiveSource = {
-  kind: 'demo',
-  label: 'Built-in demo',
-};
-
-function buildListUrl(listUrl?: string): string {
-  const baseUrl = window.location.origin + window.location.pathname;
-  if (!listUrl) {
-    return baseUrl;
-  }
-
-  return `${baseUrl}?list=${listUrl}`;
+function updateHistory(mode: HistoryMode, listUrl?: string) {
+  if (mode === 'skip') return;
+  const path = buildListPath(window.location.pathname, listUrl);
+  if (path === window.location.pathname + window.location.search) return;
+  window.history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', path);
 }
 
 export function useListSource() {
-  const requestIdRef = useRef(0);
+  const requestRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<ListStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [inputUrl, setInputUrl] = useState('');
   const [urls, setUrls] = useState<string[]>([]);
   const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
   const [activeSource, setActiveSource] = useState<ActiveSource>(DEMO_SOURCE);
-  const [loadingProgress, setLoadingProgress] = useState<ListLoadProgress | null>(
-    null,
-  );
+  const [loadingProgress, setLoadingProgress] = useState<ListLoadProgress | null>(null);
 
-  const commitLoad = useCallback((result: LoadResult) => {
+  const loadDemo = useCallback((historyMode: HistoryMode = 'push') => {
+    requestRef.current?.abort();
+    const result = deduplicateUrls(DEMO_URLS);
     setUrls(result.urls);
     setDuplicatesRemoved(result.duplicatesRemoved);
-    setActiveSource(result.activeSource);
+    setActiveSource(DEMO_SOURCE);
     setLoadingProgress(null);
     setError(null);
     setStatus('loaded');
+    setInputUrl('');
+    updateHistory(historyMode);
   }, []);
 
-  const clearPendingLoad = useCallback((nextSource: ActiveSource) => {
+  const loadRemoteList = useCallback(async (
+    listUrl: string,
+    { historyMode = 'push' }: { historyMode?: HistoryMode } = {},
+  ) => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const { signal } = controller;
+    const trimmedUrl = listUrl.trim();
+    setInputUrl(trimmedUrl);
     setUrls([]);
     setDuplicatesRemoved(0);
-    setActiveSource(nextSource);
+    setActiveSource({ kind: 'remote', label: trimmedUrl, url: trimmedUrl });
     setLoadingProgress(null);
     setError(null);
     setStatus('loading');
+
+    try {
+      const result = await loadUrlList(trimmedUrl, {
+        signal,
+        onProgress: (progress) => {
+          if (!signal.aborted) setLoadingProgress(progress);
+        },
+      });
+      if (signal.aborted) return;
+
+      setUrls(result.urls);
+      setDuplicatesRemoved(result.duplicatesRemoved);
+      setActiveSource({
+        kind: 'remote',
+        label: result.normalizedListUrl,
+        url: result.normalizedListUrl,
+      });
+      setLoadingProgress(null);
+      setStatus('loaded');
+      setInputUrl(result.normalizedListUrl);
+      updateHistory(historyMode, result.normalizedListUrl);
+    } catch (loadError) {
+      if (signal.aborted) return;
+      setLoadingProgress(null);
+      setStatus('error');
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load the list.');
+    }
   }, []);
 
-  const loadDemo = useCallback(() => {
-    requestIdRef.current += 1;
-    const deduplicated = deduplicateUrls(DEMO_URLS);
-
-    commitLoad({
-      urls: deduplicated.urls,
-      duplicatesRemoved: deduplicated.duplicatesRemoved,
-      activeSource: DEMO_SOURCE,
-    });
-
-    setInputUrl('');
-    setLoadingProgress(null);
-    window.history.pushState({}, '', buildListUrl());
-  }, [commitLoad]);
-
-  const loadRemoteList = useCallback(
-    async (
-      listUrl: string,
-      options: LoadRemoteListOptions = {},
-    ) => {
-      const requestId = ++requestIdRef.current;
-      const trimmedUrl = listUrl.trim();
-      const historyMode = options.historyMode ?? 'push';
-      setInputUrl(trimmedUrl);
-      clearPendingLoad({
-        kind: 'remote',
-        label: trimmedUrl,
-        url: trimmedUrl,
-      });
-
-      try {
-        const result = await loadUrlList(listUrl, {
-          onProgress: (nextProgress) => {
-            if (requestId === requestIdRef.current) {
-              setLoadingProgress(nextProgress);
-            }
-          },
-        });
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
-
-        commitLoad({
-          urls: result.urls,
-          duplicatesRemoved: result.duplicatesRemoved,
-          activeSource: {
-            kind: 'remote',
-            label: result.normalizedListUrl,
-            url: result.normalizedListUrl,
-          },
-        });
-
-        setInputUrl(result.normalizedListUrl);
-        if (historyMode === 'replace') {
-          window.history.replaceState({}, '', buildListUrl(result.normalizedListUrl));
-        } else if (historyMode === 'push') {
-          window.history.pushState({}, '', buildListUrl(result.normalizedListUrl));
-        }
-      } catch (loadError) {
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
-
-        setLoadingProgress(null);
-        setStatus('error');
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Failed to load the list.',
-        );
-      }
-    },
-    [clearPendingLoad, commitLoad],
-  );
-
-  const loadDemoListUrl = useCallback(
-    async (listUrl: string) => {
-      setInputUrl(listUrl);
-      await loadRemoteList(listUrl);
-    },
-    [loadRemoteList],
-  );
-
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const initialListUrl = params.get('list');
-    const timerId = window.setTimeout(() => {
-      if (initialListUrl) {
-        void loadRemoteList(initialListUrl, { historyMode: 'replace' });
-        return;
+    const loadFromLocation = () => {
+      const listUrl = new URLSearchParams(window.location.search).get('list');
+      if (listUrl) {
+        void loadRemoteList(listUrl, { historyMode: 'skip' });
+      } else {
+        loadDemo('skip');
       }
-
-      loadDemo();
-    }, 0);
-
-    return () => window.clearTimeout(timerId);
+    };
+    const timerId = window.setTimeout(loadFromLocation, 0);
+    window.addEventListener('popstate', loadFromLocation);
+    return () => {
+      window.clearTimeout(timerId);
+      window.removeEventListener('popstate', loadFromLocation);
+      requestRef.current?.abort();
+    };
   }, [loadDemo, loadRemoteList]);
 
   return {
@@ -178,10 +123,8 @@ export function useListSource() {
     isLoading: status === 'loading',
     loadingProgress,
     setInputUrl,
-    status,
     urls,
     loadDemo,
-    loadDemoListUrl,
     loadRemoteList,
   };
 }

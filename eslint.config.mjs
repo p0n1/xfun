@@ -5,7 +5,7 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypeScript,
   {
-    ignores: ["public/sw.js", "public/workbox-*.js"],
+    ignores: [".test-build/**", "public/sw.js", "public/workbox-*.js"],
   },
 ];
 
