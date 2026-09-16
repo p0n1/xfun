@@ -94,6 +94,8 @@ npm run build
 
 The regression tests use Node's built-in test runner and mocked requests. They cover list parsing and deduplication, nested list URLs, request cancellation and body timeouts, proxy fallback, and FxEmbed media handling. No test API keys or extra test dependencies are required.
 
+Dependency compatibility: ESLint stays on 9.x while the React, import, and accessibility plugins declare support only through 9.x. Node types target the Node 24 development runtime. The override scoped to `@serwist/next` replaces the Browserslist pinned by Serwist 9.5.12 with 4.28.7 to fix [GHSA-c83g-rgw3-j3cx](https://github.com/advisories/GHSA-c83g-rgw3-j3cx) and [GHSA-73wf-gq98-2v4g](https://github.com/advisories/GHSA-73wf-gq98-2v4g); reassess it when updating Serwist.
+
 ## Technical Details
 
 - **Framework**: Built with [Next.js](https://nextjs.org) for optimal performance

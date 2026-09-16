@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BATCH_SIZE, type FeedItem, fetchFeedItem } from '../lib/content';
 
 interface FeedState {
+  sourceUrls: string[];
   items: FeedItem[];
   processed: number;
   failed: number;
@@ -19,12 +20,18 @@ interface FeedSession {
   failed: number;
 }
 
+function createFeedState(sourceUrls: string[]): FeedState {
+  return { sourceUrls, items: [], processed: 0, failed: 0, loading: sourceUrls.length > 0 };
+}
+
 export function useFeedLoader(sourceUrls: string[]) {
   const sessionRef = useRef<FeedSession | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const [feed, setFeed] = useState<FeedState>({
-    items: [], processed: 0, failed: 0, loading: false,
-  });
+  const [feed, setFeed] = useState(() => createFeedState(sourceUrls));
+
+  if (feed.sourceUrls !== sourceUrls) {
+    setFeed(createFeedState(sourceUrls));
+  }
 
   const loadMore = useCallback(async () => {
     const session = sessionRef.current;
@@ -32,7 +39,9 @@ export function useFeedLoader(sourceUrls: string[]) {
     // A ref locks synchronously, including scroll and button events in the same frame.
     session.loading = true;
     const { signal } = session.controller;
-    setFeed((previous) => ({ ...previous, loading: true }));
+    if (session.nextIndex > 0) {
+      setFeed((previous) => ({ ...previous, loading: true }));
+    }
 
     try {
       do {
@@ -61,6 +70,7 @@ export function useFeedLoader(sourceUrls: string[]) {
       session.loading = false;
       if (!signal.aborted) {
         setFeed({
+          sourceUrls,
           items: session.items,
           processed: session.nextIndex,
           failed: session.failed,
@@ -75,7 +85,6 @@ export function useFeedLoader(sourceUrls: string[]) {
     sessionRef.current = {
       controller, nextIndex: 0, loading: false, items: [], seen: new Set(), failed: 0,
     };
-    setFeed({ items: [], processed: 0, failed: 0, loading: sourceUrls.length > 0 });
     void loadMore();
     return () => controller.abort();
   }, [loadMore, sourceUrls]);

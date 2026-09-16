@@ -174,7 +174,7 @@ export default function Home() {
                 Details
               </summary>
               <div className="mt-3 space-y-3 rounded-[1.5rem] border border-slate-100 bg-slate-50/80 px-4 py-4 text-left text-sm leading-6 text-slate-600">
-                <p>{currentStatusHeadline}</p>
+                <p className="break-all">{currentStatusHeadline}</p>
                 <div className="h-2 overflow-hidden rounded-full bg-white">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-500"
