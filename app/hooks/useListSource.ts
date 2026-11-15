@@ -7,6 +7,7 @@ import {
   deduplicateUrls,
   type ListLoadProgress,
   loadUrlList,
+  parseUrlList,
 } from '../lib/content';
 import { buildListPath } from '../utils/urlDetection';
 
@@ -14,7 +15,7 @@ type ListStatus = 'idle' | 'loading' | 'loaded' | 'error';
 type HistoryMode = 'push' | 'replace' | 'skip';
 
 interface ActiveSource {
-  kind: 'demo' | 'remote';
+  kind: 'demo' | 'remote' | 'pasted';
   label: string;
   url?: string;
 }
@@ -96,6 +97,24 @@ export function useListSource() {
     }
   }, []);
 
+  const loadPastedList = useCallback((text: string) => {
+    const result = deduplicateUrls(parseUrlList(text));
+    if (result.urls.length === 0) {
+      setError('No supported X/Twitter or YouTube URLs were found in the pasted text.');
+      return;
+    }
+
+    requestRef.current?.abort();
+    setUrls(result.urls);
+    setDuplicatesRemoved(result.duplicatesRemoved);
+    setActiveSource({ kind: 'pasted', label: 'Pasted list (this session only)' });
+    setLoadingProgress(null);
+    setError(null);
+    setStatus('loaded');
+    setInputUrl('');
+    updateHistory('push');
+  }, []);
+
   useEffect(() => {
     const loadFromLocation = () => {
       const listUrl = new URLSearchParams(window.location.search).get('list');
@@ -126,5 +145,6 @@ export function useListSource() {
     urls,
     loadDemo,
     loadRemoteList,
+    loadPastedList,
   };
 }

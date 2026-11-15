@@ -203,6 +203,7 @@ interface LoadUrlListOptions {
 
 interface ProxyDefinition {
   name: string;
+  timeoutMs?: number;
   buildRequestUrl: (targetUrl: string, cacheBuster: string) => string;
 }
 
@@ -325,20 +326,30 @@ async function fetchWithCorsProxy(
 ): Promise<string> {
   const proxies: ProxyDefinition[] = [
     {
-      name: 'codetabs',
-      buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
-        const proxyUrl = new URL('https://api.codetabs.com/v1/proxy/');
-        proxyUrl.searchParams.set('quest', targetUrl);
-        proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
-        return proxyUrl.toString();
-      },
-    },
-    {
       name: 'allorigins-hexlet',
       buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
         const proxyUrl = new URL('https://allorigins.hexlet.app/raw');
         proxyUrl.searchParams.set('url', targetUrl);
         proxyUrl.searchParams.set('disableCache', 'true');
+        proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
+        return proxyUrl.toString();
+      },
+    },
+    {
+      name: 'cors-dev',
+      // This bridge can take longer to fetch Pastebin on a cold request.
+      timeoutMs: 15000,
+      buildRequestUrl: (targetUrl: string) => {
+        const proxyUrl = new URL('https://proxy.cors.dev/');
+        proxyUrl.searchParams.set('url', targetUrl);
+        return proxyUrl.toString();
+      },
+    },
+    {
+      name: 'codetabs',
+      buildRequestUrl: (targetUrl: string, cacheBuster: string) => {
+        const proxyUrl = new URL('https://api.codetabs.com/v1/proxy/');
+        proxyUrl.searchParams.set('quest', targetUrl);
         proxyUrl.searchParams.set('_xfun_cb', cacheBuster);
         return proxyUrl.toString();
       },
@@ -370,7 +381,8 @@ async function fetchWithCorsProxy(
       const requestUrl = proxy.buildRequestUrl(url, `${Date.now()}-${index}`);
       const text = await fetchText(requestUrl, {
         cache: 'no-store',
-        timeoutMs: PROXY_REQUEST_TIMEOUT_MS,
+        timeoutMs: proxy.timeoutMs ?? PROXY_REQUEST_TIMEOUT_MS,
+        credentials: 'omit',
         signal,
       });
       const proxyError = extractProxyErrorMessage(text);
@@ -385,6 +397,12 @@ async function fetchWithCorsProxy(
         }
 
         throw new Error('Received HTML instead of plain text');
+      }
+
+      // Some bridges return HTTP 200 with an empty body or a plain-text error.
+      // Only stop retrying once the response actually contains a usable list.
+      if (parseUrlList(text).length === 0) {
+        throw new Error('No supported X/Twitter or YouTube URLs were found.');
       }
 
       proxyAttempts[index] = {
@@ -440,12 +458,8 @@ function formatListFetchError(originalUrl: string, message: string): string {
     return 'The proxy bridge returned HTML instead of a plain text list. Use a raw text URL, or switch to a GitHub Raw URL or public Gist instead.';
   }
 
-  if (
-    usesProxy &&
-    (lowerMessage.includes('all public proxy bridges failed') ||
-      lowerMessage.includes('timed out after'))
-  ) {
-    return 'All public proxy bridges failed to load this Pastebin source. Pastebin support is best-effort, so try again later or use a GitHub Raw URL or public Gist instead.';
+  if (usesProxy) {
+    return 'Could not load this Pastebin list through the public proxies. Try again, open the original list and paste its contents below, or use a GitHub Raw URL or public Gist instead.';
   }
 
   return `Failed to load the list: ${message}`;

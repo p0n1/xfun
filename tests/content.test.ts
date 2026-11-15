@@ -125,9 +125,10 @@ test('Pastebin retries HTML challenges and returns the next proxy response', asy
     onProgress: (progress) => snapshots.push(progress.proxyAttempts.map((attempt) => attempt.status)),
   });
   assert.equal(requests.length, 2);
-  assert.equal(new URL(requests[0]).searchParams.get('quest'), 'https://pastebin.com/raw/TESTONLY');
+  assert.equal(new URL(requests[0]).searchParams.get('url'), 'https://pastebin.com/raw/TESTONLY');
+  assert.equal(new URL(requests[1]).hostname, 'proxy.cors.dev');
   assert.deepEqual(result.urls, [x]);
-  assert.ok(snapshots.some((snapshot) => snapshot.join() === 'failed,success'));
+  assert.ok(snapshots.some((snapshot) => snapshot.join() === 'failed,success,pending'));
 });
 
 test('cancelled proxy requests do not try another bridge', async (t) => {
@@ -140,6 +141,70 @@ test('cancelled proxy requests do not try another bridge', async (t) => {
     signal: controller.signal,
   }), { name: 'AbortError' });
   assert.equal(fetchMock.mock.callCount(), 1);
+});
+
+test('Pastebin retries Safari service-worker failures and loads the backup', async (t) => {
+  let requests = 0;
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    requests += 1;
+    if (requests === 1) {
+      throw new TypeError('FetchEvent.respondWith received an error: no-response: no-response');
+    }
+    return new Response(x);
+  });
+  const result = await loadUrlList('https://pastebin.com/raw/TESTONLY');
+  assert.deepEqual(result.urls, [x]);
+  assert.equal(fetchMock.mock.callCount(), 2);
+});
+
+test('exhausted Pastebin proxies show recovery guidance without internal errors', async (t) => {
+  for (const failure of [
+    new TypeError('FetchEvent.respondWith received an error: no-response :: [{"url":"https://allorigins.hexlet.app/raw"}]'),
+    new TypeError('Load failed'),
+    new Error('HTTP 503: Unavailable'),
+  ]) {
+    const fetchMock = t.mock.method(globalThis, 'fetch', async () => { throw failure; });
+    await assert.rejects(loadUrlList('https://pastebin.com/TESTONLY'), (error: Error) => {
+      assert.match(error.message, /paste its contents below/);
+      assert.match(error.message, /GitHub Raw/);
+      assert.doesNotMatch(error.message, /FetchEvent|no-response|hexlet|HTTP 503|Load failed/);
+      return true;
+    });
+    assert.equal(fetchMock.mock.callCount(), 3);
+    fetchMock.mock.restore();
+  }
+});
+
+test('Pastebin retries HTTP 200 responses without supported links', async (t) => {
+  for (const invalidBody of ['', 'upstream temporarily unavailable', '{"error":"rate limited"}']) {
+    let requests = 0;
+    const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+      requests += 1;
+      return new Response(requests === 1 ? invalidBody : x);
+    });
+    assert.deepEqual((await loadUrlList('https://pastebin.com/raw/TESTONLY')).urls, [x]);
+    assert.equal(requests, 2);
+    fetchMock.mock.restore();
+  }
+});
+
+test('Pastebin falls through all three bridges with the original target intact', async (t) => {
+  const requests: URL[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    assert.equal(init.credentials, 'omit');
+    assert.equal(init.cache, 'no-store');
+    requests.push(new URL(url));
+    if (requests.length < 3) throw new TypeError('Load failed');
+    return new Response(x);
+  });
+  const target = 'https://pastebin.com/raw/TESTONLY';
+  assert.deepEqual((await loadUrlList(target)).urls, [x]);
+  assert.deepEqual(requests.map((url) => url.hostname), [
+    'allorigins.hexlet.app', 'proxy.cors.dev', 'api.codetabs.com',
+  ]);
+  assert.equal(requests[0].searchParams.get('url'), target);
+  assert.equal(requests[1].searchParams.get('url'), target);
+  assert.equal(requests[2].searchParams.get('quest'), target);
 });
 
 test('YouTube cancellation is not swallowed as a metadata failure', async (t) => {

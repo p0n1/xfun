@@ -11,6 +11,7 @@ import YouTubeCard from './components/YouTubeCard';
 import { useFeedLoader } from './hooks/useFeedLoader';
 import { useListSource } from './hooks/useListSource';
 import { usePwaState } from './hooks/usePwaState';
+import { normalizeListSourceUrl } from './utils/urlDetection';
 
 export default function Home() {
   const {
@@ -25,6 +26,7 @@ export default function Home() {
     urls,
     loadDemo,
     loadRemoteList,
+    loadPastedList,
   } = useListSource();
   const {
     error: feedError,
@@ -39,6 +41,14 @@ export default function Home() {
   const { canInstall, installApp, isOnline } = usePwaState();
   const [showCustomList, setShowCustomList] = useState(false);
   const [installMessage, setInstallMessage] = useState('');
+  const [pastedText, setPastedText] = useState('');
+
+  let originalListUrl: string | undefined;
+  try {
+    if (activeSource.url) originalListUrl = normalizeListSourceUrl(activeSource.url);
+  } catch {
+    // Invalid list sources must not become clickable links.
+  }
 
   const feedProgressPercent =
     stats.total > 0 ? Math.round((stats.processed / stats.total) * 100) : 0;
@@ -49,7 +59,7 @@ export default function Home() {
     ? loadingProgress?.headline ?? 'Preparing your list'
     : activeSource.kind === 'remote' && activeSource.url
       ? activeSource.url
-      : 'Built-in demo list';
+      : activeSource.label;
   const currentStatusDetail = isLoadingList
     ? loadingProgress?.detail ?? 'Checking the source and getting links ready.'
     : 'Use GitHub Raw URLs or public Gists for the most reliable loading and offline reuse. Public Pastebin links are best-effort through proxy bridges. One supported URL per line, with inline comments allowed after each URL.';
@@ -219,7 +229,38 @@ export default function Home() {
           {listError ? (
             <Reveal className="mx-auto mt-4 max-w-6xl">
               <div className="rounded-[2rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm leading-6 text-rose-700">
-                {listError}
+                <p role="alert" className="break-words">{listError}</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {originalListUrl ? (
+                    <>
+                      <button type="button" className="underline" onClick={() => void loadRemoteList(originalListUrl!)}>
+                        Retry list
+                      </button>
+                      <a className="underline" href={originalListUrl} target="_blank" rel="noopener noreferrer">
+                        Open original list
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+                <form className="mt-4" onSubmit={(event) => {
+                  event.preventDefault();
+                  loadPastedList(pastedText);
+                }}>
+                  <label htmlFor="pasted-list" className="block font-medium">Paste list contents</label>
+                  <p id="pasted-list-help" className="mt-1">Copy the text from your original list. Imported links stay in this session only.</p>
+                  <textarea
+                    id="pasted-list"
+                    aria-describedby="pasted-list-help"
+                    value={pastedText}
+                    onChange={(event) => setPastedText(event.target.value)}
+                    rows={5}
+                    placeholder="One X/Twitter or YouTube URL per line"
+                    className="mt-2 block w-full min-w-0 rounded-xl border border-rose-200 bg-white p-3 text-slate-800"
+                  />
+                  <button type="submit" disabled={!pastedText.trim()} className="mt-3 rounded-full border border-rose-200 bg-white px-4 py-2 font-medium disabled:opacity-50">
+                    Load pasted list
+                  </button>
+                </form>
               </div>
             </Reveal>
           ) : null}

@@ -48,6 +48,10 @@ Some hosting services may block cross-origin requests (CORS). If your list fails
 2. **Use GitHub Raw URLs or public Gists** (recommended) — they are the most reliable and support offline reuse
 3. **Pastebin URLs** are handled through public proxy bridges on a best-effort basis, so availability can vary
 
+Pastebin requests try Hexlet AllOrigins, [cors.dev](https://cors.dev/docs), then Codetabs in order. Each response must contain supported links before it is accepted. The bridges require no API key; requests are sent from the browser without credentials and are not cached by the service worker. Each attempt has an 8-second timeout, except cors.dev (15 seconds for slower upstream reads).
+
+If all bridges fail, use **Open original list**, copy the raw text, and import it with **Paste list contents** in the error panel. This reads the links locally in your browser and bypasses the list proxies; the imported list lasts for the current session only. For a shareable list that loads without public proxies, use GitHub Raw or a public Gist.
+
 ### Supported URL Formats
 
 The viewer supports both X/Twitter and YouTube URLs.

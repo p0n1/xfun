@@ -28,6 +28,7 @@ const PROXY_CACHE_HOSTS = new Set([
   'corsproxy.io',
   'api.codetabs.com',
   'proxy.killcors.com',
+  'proxy.cors.dev',
 ]);
 
 // Caches left behind by the old next-pwa service worker. Its "start-url" cache
