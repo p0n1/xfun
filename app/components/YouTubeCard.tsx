@@ -1,18 +1,22 @@
 'use client';
 
+import FavoriteButton from './FavoriteButton';
 import { memo } from 'react';
 import type { YouTubeItem } from '../lib/content';
 
 interface YouTubeCardProps {
   item: YouTubeItem;
+  saved: boolean;
+  onToggleFavorite: () => void;
 }
 
-function YouTubeCard({ item }: YouTubeCardProps) {
+function YouTubeCard({ item, saved, onToggleFavorite }: YouTubeCardProps) {
   return (
     <article className="relative overflow-hidden rounded-[2rem] border border-white/65 bg-white/80 p-5 shadow-[0_24px_80px_rgba(148,163,184,0.16)] backdrop-blur-sm sm:p-7">
       <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-rose-300/70 to-transparent" />
 
-      <div className="space-y-2">
+      <div className="flex items-start gap-3">
+      <div className="min-w-0 flex-1 space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-500">
           YouTube video
         </p>
@@ -24,6 +28,9 @@ function YouTubeCard({ item }: YouTubeCardProps) {
             {item.metadata?.authorName ?? 'Metadata unavailable'}
           </p>
         </div>
+      </div>
+
+        <FavoriteButton saved={saved} onToggle={onToggleFavorite} />
       </div>
 
       {item.metadataError ? (

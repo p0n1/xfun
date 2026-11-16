@@ -2,21 +2,22 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import FavoriteButton from './FavoriteButton';
 import type PhotoSwipe from 'photoswipe';
 import 'photoswipe/style.css';
 import { getBestVideoUrl, type XPhoto, type XPostItem, type XVideo } from '../lib/content';
 
 interface XPostCardProps {
   item: XPostItem;
+  saved: boolean;
+  onToggleFavorite: () => void;
 }
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
+    month: 'numeric',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -237,7 +238,7 @@ function QuoteBlock({ quote }: { quote: XPostItem }) {
   );
 }
 
-function XPostCard({ item }: XPostCardProps) {
+function XPostCard({ item, saved, onToggleFavorite }: XPostCardProps) {
   const [clickCount, setClickCount] = useState(0);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(clickTimerRef.current), []);
@@ -282,13 +283,28 @@ function XPostCard({ item }: XPostCardProps) {
           height={52}
           className="h-12 w-12 rounded-full ring-2 ring-white"
         />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-base font-semibold text-slate-900">
             {item.author.name}
           </p>
-          <p className="truncate text-sm text-slate-500">@{item.author.handle}</p>
+          <div className="flex min-w-0 items-center gap-1 text-sm text-slate-500">
+            <span className="min-w-0 truncate">@{item.author.handle}</span>
+            <span aria-hidden="true">·</span>
+            <button type="button" onClick={handleDateClick}
+              title={new Date(item.createdAt).toLocaleString()}
+              aria-label={`${formatDate(item.createdAt)}. Click three times to open the original post`}
+              className="shrink-0 rounded py-2 transition hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-sky-500">
+              <time dateTime={item.createdAt}>{formatDate(item.createdAt)}</time>
+            </button>
+          </div>
         </div>
+        <FavoriteButton saved={saved} onToggle={onToggleFavorite} />
       </div>
+      {clickCount > 0 ? (
+        <p role="status" className="mt-1 text-xs font-medium text-sky-600">
+          {new Date(item.createdAt).toLocaleString()} · {getClickMessage()}
+        </p>
+      ) : null}
 
       <div className="mt-5 space-y-5">
         {item.text ? (
@@ -302,18 +318,7 @@ function XPostCard({ item }: XPostCardProps) {
         {item.quote ? <QuoteBlock quote={item.quote} /> : null}
       </div>
 
-      <footer className="mt-5 border-t border-slate-100 pt-4">
-        <button
-          type="button"
-          onClick={handleDateClick}
-          className="text-left text-sm text-slate-500 transition hover:text-slate-700"
-        >
-          <time>{formatDate(item.createdAt)}</time>
-        </button>
-        {clickCount > 0 ? (
-          <p className="mt-2 text-xs font-medium text-sky-600">{getClickMessage()}</p>
-        ) : null}
-      </footer>
+
     </article>
   );
 }

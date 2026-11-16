@@ -24,7 +24,7 @@ function createFeedState(sourceUrls: string[]): FeedState {
   return { sourceUrls, items: [], processed: 0, failed: 0, loading: sourceUrls.length > 0 };
 }
 
-export function useFeedLoader(sourceUrls: string[]) {
+export function useFeedLoader(sourceUrls: string[], autoLoad = true) {
   const sessionRef = useRef<FeedSession | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const [feed, setFeed] = useState(() => createFeedState(sourceUrls));
@@ -93,13 +93,13 @@ export function useFeedLoader(sourceUrls: string[]) {
 
   useEffect(() => {
     const node = loadMoreRef.current;
-    if (!node || feed.loading || !hasMoreContent) return;
+    if (!autoLoad || !node || feed.loading || !hasMoreContent) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) void loadMore();
     }, { rootMargin: '900px 0px' });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [feed.loading, hasMoreContent, loadMore]);
+  }, [autoLoad, feed.loading, hasMoreContent, loadMore]);
 
   return {
     error: !feed.loading && sourceUrls.length > 0 && !hasMoreContent && feed.items.length === 0

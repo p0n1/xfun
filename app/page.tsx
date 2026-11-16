@@ -1,13 +1,16 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import FeedControl from './components/FeedControl';
 import DynamicManifest from './components/DynamicManifest';
 import ListLoadingPanel from './components/ListLoadingPanel';
 import Reveal from './components/Reveal';
 import ScrollToTop from './components/ScrollToTop';
 import XPostCard from './components/XPostCard';
 import YouTubeCard from './components/YouTubeCard';
+import { useFavorites } from './hooks/useFavorites';
+import { itemKey, shuffleItems } from './lib/favorites';
 import { useFeedLoader } from './hooks/useFeedLoader';
 import { useListSource } from './hooks/useListSource';
 import { usePwaState } from './hooks/usePwaState';
@@ -28,6 +31,11 @@ export default function Home() {
     loadRemoteList,
     loadPastedList,
   } = useListSource();
+  const [view, setView] = useState<'list' | 'favorites'>('list');
+  const [randomSeed, setRandomSeed] = useState<number | null>(null);
+  const feedTopRef = useRef<HTMLDivElement>(null);
+  const orderedUrls = useMemo(() => randomSeed === null ? urls : shuffleItems(urls, randomSeed), [urls, randomSeed]);
+  const { favorites, keys: favoriteKeys, toggleFavorite, error: favoritesError } = useFavorites();
   const {
     error: feedError,
     hasMoreContent,
@@ -37,7 +45,12 @@ export default function Home() {
     loadMore,
     loadMoreRef,
     stats,
-  } = useFeedLoader(urls);
+  } = useFeedLoader(orderedUrls, view === 'list');
+  const displayedItems = view === 'favorites' ? favorites.map(entry => entry.item) : items;
+  const shuffleFeed = () => {
+    setRandomSeed(Math.floor(Math.random() * 4294967296));
+    feedTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const { canInstall, installApp, isOnline } = usePwaState();
   const [showCustomList, setShowCustomList] = useState(false);
   const [installMessage, setInstallMessage] = useState('');
@@ -115,8 +128,12 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 text-sky-600" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 7v5h-5M4 17v-5h5" />
+                  <path d="M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 17.9 17" />
+                </svg>
                 Refresh
               </button>
               <button
@@ -265,7 +282,7 @@ export default function Home() {
             </Reveal>
           ) : null}
 
-          {feedError ? (
+          {view === 'list' && feedError ? (
             <Reveal className="mx-auto mt-4 max-w-6xl">
               <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-800">
                 {feedError}
@@ -276,14 +293,33 @@ export default function Home() {
 
         <section className="px-4 pb-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-6xl">
-            {isLoadingList ? (
+            <div ref={feedTopRef} className="mb-5 flex scroll-mt-4 flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-2 rounded-[1.5rem] bg-slate-100/80 p-2" role="group" aria-label="Content view">
+                <FeedControl icon="list" label="List" selected={view === 'list'} onClick={() => setView('list')} />
+                <FeedControl icon="favorites" label="Favorites" count={favorites.length} selected={view === 'favorites'} onClick={() => setView('favorites')} />
+              </div>
+              {view === 'list' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex gap-2 rounded-[1.5rem] bg-slate-100/80 p-2" role="group" aria-label="Browsing order">
+                    <FeedControl icon="order" label="In order" selected={randomSeed === null} onClick={() => setRandomSeed(null)} />
+                    <FeedControl icon="random" label="Random" selected={randomSeed !== null} onClick={() => { if (randomSeed === null) shuffleFeed(); }} />
+                  </div>
+                  {randomSeed !== null ? <FeedControl icon="reshuffle" label="Shuffle again" onClick={shuffleFeed} /> : null}
+                </div>
+              ) : <p className="text-sm text-slate-500">Saved on this browser · Newest first</p>}
+            </div>
+            {favoritesError ? <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{favoritesError}</p> : null}
+            {view === 'favorites' && favorites.length === 0 ? (
+              <div className="rounded-[2rem] bg-white/80 px-6 py-10 text-center text-slate-500">No favorites yet. Tap the star on any post or video to save it here.</div>
+            ) : null}
+            {view === 'list' && isLoadingList ? (
               <ListLoadingPanel
                 progress={loadingProgress}
                 sourceLabel={activeSource.url ?? activeSource.label}
               />
             ) : null}
 
-            {isInitialLoading ? (
+            {view === 'list' && isInitialLoading ? (
               <div className="grid gap-5">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div
@@ -299,18 +335,18 @@ export default function Home() {
             ) : null}
 
             <div className="grid gap-5">
-              {items.map((item) => (
-                <Reveal key={item.id}>
+              {displayedItems.map((item) => (
+                <Reveal key={`${view}:${itemKey(item)}`}>
                   {item.kind === 'x' ? (
-                    <XPostCard item={item} />
+                    <XPostCard item={item} saved={favoriteKeys.has(itemKey(item))} onToggleFavorite={() => toggleFavorite(item)} />
                   ) : (
-                    <YouTubeCard item={item} />
+                    <YouTubeCard item={item} saved={favoriteKeys.has(itemKey(item))} onToggleFavorite={() => toggleFavorite(item)} />
                   )}
                 </Reveal>
               ))}
             </div>
 
-            {!isLoadingList && !isInitialLoading && items.length === 0 && !listError && !feedError ? (
+            {view === 'list' && !isLoadingList && !isInitialLoading && items.length === 0 && !listError && !feedError ? (
               <div className="rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 text-center text-slate-500 shadow-[0_18px_70px_rgba(148,163,184,0.12)]">
                 No supported posts were loaded yet.
               </div>
@@ -318,7 +354,7 @@ export default function Home() {
 
             <div ref={loadMoreRef} aria-hidden="true" />
 
-            {isLoadingMore ? (
+            {view === 'list' && isLoadingMore ? (
               <div className="flex justify-center py-8">
                 <div className="rounded-full border border-white/70 bg-white/80 px-5 py-3 text-sm text-slate-600 shadow-sm">
                   Loading more from the list...
@@ -326,7 +362,7 @@ export default function Home() {
               </div>
             ) : null}
 
-            {!isInitialLoading && !isLoadingMore && hasMoreContent && items.length > 0 ? (
+            {view === 'list' && !isInitialLoading && !isLoadingMore && hasMoreContent && items.length > 0 ? (
               <div className="flex justify-center py-10">
                 <button
                   type="button"
